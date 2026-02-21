@@ -1,0 +1,6 @@
+id: bare-except
+message: "Bare except clause swallows all exceptions — catch a specific exception class"
+severity: error
+language: python
+rule:
+  pattern: "except: $$$BODY"

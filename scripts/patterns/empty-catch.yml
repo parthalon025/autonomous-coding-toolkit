@@ -1,0 +1,6 @@
+id: empty-catch
+message: "Empty catch block silently swallows errors — add logging"
+severity: warning
+language: javascript
+rule:
+  pattern: "catch ($ERR) {}"

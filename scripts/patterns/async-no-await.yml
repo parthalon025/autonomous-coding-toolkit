@@ -1,0 +1,5 @@
+id: async-no-await
+message: "async def with no await in body — remove async keyword or add await"
+severity: warning
+language: python
+note: "Requires whole-function analysis — this is a simplified pattern"
