@@ -33,9 +33,7 @@ build_dependency_graph() {
     local total
     total=$(count_batches "$plan_file")
 
-    # Phase 1: collect which files each batch creates and modifies
-    # creates[file] = batch_num (first creator)
-    # modifies[file] = space-separated batch numbers that touch this file
+    # Phase 1: collect files each batch creates/modifies
     declare -A creates
     declare -A modifies
 
@@ -54,16 +52,11 @@ build_dependency_graph() {
         done <<< "$files"
     done
 
-    # Phase 2: for each batch, find dependencies
-    # A batch depends on another if it:
-    #   - Modifies a file created by an earlier batch
-    #   - Modifies a file that an earlier batch also modifies (ordering constraint)
-    #   - Has context_refs pointing to files created by an earlier batch
+    # Phase 2: find dependencies (Create→Modify, Modify→Modify, context_refs)
     local graph="{"
     for ((b = 1; b <= total; b++)); do
         local deps=()
 
-        # Check file-level dependencies (Create→Modify and Modify→Modify chains)
         local files
         files=$(_get_batch_files "$plan_file" "$b")
         while IFS= read -r line; do
@@ -71,12 +64,10 @@ build_dependency_graph() {
             local action="${line%%:*}"
             local file="${line#*:}"
             if [[ "$action" == "Modify" ]]; then
-                # Depend on the creator
                 local creator="${creates[$file]:-}"
                 if [[ -n "$creator" && "$creator" != "$b" ]]; then
                     deps+=("$creator")
                 fi
-                # Depend on earlier batches that also touch this file
                 local touchers="${modifies[$file]:-}"
                 for t in $touchers; do
                     if [[ "$t" -lt "$b" ]]; then
@@ -142,8 +133,7 @@ compute_parallelism_score() {
     local graph
     graph=$(build_dependency_graph "$plan_file")
 
-    # Compute parallel groups via topological sort
-    # Group = set of batches whose deps are all in prior groups
+    # Topological sort into parallel groups
     local completed=""
     local groups=0
     local max_group_size=0
@@ -154,13 +144,10 @@ compute_parallelism_score() {
         local group_size=0
         local new_completed=""
 
-        # Collect all batches whose deps are met (two-phase to avoid
-        # same-group contamination)
         for ((b = 1; b <= total; b++)); do
             # Skip already completed
             [[ "$completed" == *"|$b|"* ]] && continue
 
-            # Check if all deps are in completed (prior groups only)
             local deps
             deps=$(echo "$graph" | jq -r ".\"$b\"[]" 2>/dev/null || true)
             local all_met=true
@@ -179,22 +166,18 @@ compute_parallelism_score() {
             fi
         done
 
-        # Add this group's batches to completed after the scan
         completed+="$new_completed"
 
         if [[ "$group_size" -gt "$max_group_size" ]]; then
             max_group_size=$group_size
         fi
 
-        # Safety: break infinite loops
         if [[ "$group_size" -eq 0 ]]; then
             break
         fi
     done
 
-    # Score: weighted combination of max parallelism and group savings
-    # parallel_ratio: biggest parallel group as fraction of total
-    # group_savings: how many groups we saved vs fully sequential
+    # Score: weighted parallel_ratio (70%) + group_savings (30%)
     local parallel_ratio=$(( (max_group_size * 100) / total ))
     local denom=$(( total - 1 ))
     [[ "$denom" -lt 1 ]] && denom=1
@@ -214,7 +197,6 @@ recommend_execution_mode() {
     local teams_available="${2:-false}"
     local available_mem_gb="${3:-0}"
 
-    # Need minimum score, memory, and batch count for team mode
     if [[ "$score" -ge "$PARALLELISM_THRESHOLD_TEAM" && "$available_mem_gb" -ge "$MIN_MEMORY_TEAM_GB" ]]; then
         echo "team"
     else
