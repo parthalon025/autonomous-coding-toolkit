@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
 # run-plan-headless.sh — Headless batch execution loop for run-plan
 #
-# Extracted from run-plan.sh to keep the main script under 300 lines.
-#
-# Requires these globals set before calling:
-#   WORKTREE, RESUME, START_BATCH, END_BATCH, NOTIFY, PLAN_FILE,
-#   QUALITY_GATE_CMD, PYTHON, MAX_RETRIES, ON_FAILURE, VERIFY, MODE
-#
-# Requires these libs sourced:
-#   run-plan-parser.sh, run-plan-state.sh, run-plan-quality-gate.sh,
-#   run-plan-notify.sh, run-plan-prompt.sh, run-plan-scoring.sh
+# Requires globals: WORKTREE, RESUME, START_BATCH, END_BATCH, NOTIFY,
+#   PLAN_FILE, QUALITY_GATE_CMD, PYTHON, MAX_RETRIES, ON_FAILURE, VERIFY, MODE
+# Requires libs: run-plan-parser, state, quality-gate, notify, prompt, scoring
 
 run_mode_headless() {
     mkdir -p "$WORKTREE/logs"
@@ -240,14 +234,17 @@ Focus on fixing the root cause. Check test output carefully."
                 if [[ "$NOTIFY" == true ]]; then
                     local new_test_count
                     new_test_count=$(get_previous_test_count "$WORKTREE")
-                    notify_success "$plan_name" "$batch" "$new_test_count" "$prev_test_count" "$duration" "$MODE" || true
+                    # Build summary from git log (commits in this batch)
+                    local batch_summary=""
+                    batch_summary=$(cd "$WORKTREE" && git log --oneline -5 2>/dev/null | head -3 | sed 's/^[a-f0-9]* /• /' | tr '\n' '; ' | sed 's/; $//')
+                    notify_success "$plan_name" "$batch" "$END_BATCH" "$title" "$new_test_count" "$prev_test_count" "$duration" "$MODE" "$batch_summary" || true
                 fi
                 break
             else
                 echo "Batch $batch FAILED on attempt $attempt (${duration})"
 
                 if [[ "$NOTIFY" == true ]]; then
-                    notify_failure "$plan_name" "$batch" "0" "?" "Quality gate failed" "$ON_FAILURE" || true
+                    notify_failure "$plan_name" "$batch" "$END_BATCH" "$title" "0" "?" "Quality gate failed" "$ON_FAILURE" || true
                 fi
 
                 # Record failure pattern for cross-run learning
