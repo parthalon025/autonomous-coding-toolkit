@@ -7,6 +7,7 @@
 #
 # Functions:
 #   generate_batch_context <plan_file> <batch_num> <worktree> -> markdown string
+#   record_failure_pattern <worktree> <batch_title> <failure_type> <winning_fix>
 
 TOKEN_BUDGET_CHARS=6000  # ~1500 tokens
 
@@ -112,4 +113,39 @@ generate_batch_context() {
     fi
 
     echo "$context"
+}
+
+record_failure_pattern() {
+    local worktree="$1" batch_title="$2" failure_type="$3" winning_fix="$4"
+    local patterns_file="$worktree/logs/failure-patterns.json"
+    local title_lower
+    title_lower=$(echo "$batch_title" | tr '[:upper:]' '[:lower:]')
+
+    mkdir -p "$(dirname "$patterns_file")"
+
+    if [[ ! -f "$patterns_file" ]]; then
+        echo "[]" > "$patterns_file"
+    fi
+
+    # Check if pattern already exists
+    local existing
+    existing=$(jq -r --arg t "$title_lower" --arg f "$failure_type" \
+        '[.[] | select(.batch_title_pattern == $t and .failure_type == $f)] | length' \
+        "$patterns_file" 2>/dev/null || echo "0")
+
+    if [[ "$existing" -gt 0 ]]; then
+        # Increment frequency
+        local tmp
+        tmp=$(mktemp)
+        jq --arg t "$title_lower" --arg f "$failure_type" \
+            '[.[] | if .batch_title_pattern == $t and .failure_type == $f then .frequency += 1 else . end]' \
+            "$patterns_file" > "$tmp" && mv "$tmp" "$patterns_file"
+    else
+        # Add new pattern
+        local tmp
+        tmp=$(mktemp)
+        jq --arg t "$title_lower" --arg f "$failure_type" --arg w "$winning_fix" \
+            '. += [{"batch_title_pattern": $t, "failure_type": $f, "frequency": 1, "winning_fix": $w}]' \
+            "$patterns_file" > "$tmp" && mv "$tmp" "$patterns_file"
+    fi
 }

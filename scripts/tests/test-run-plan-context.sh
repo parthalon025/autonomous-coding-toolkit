@@ -138,6 +138,25 @@ JSON
 ctx=$(generate_batch_context "$WORK/test-plan.md" 3 "$WORK")
 assert_contains "context: includes failure pattern warning" "missing import" "$ctx"
 
+# === Failure pattern recording ===
+
+# Clean up pre-existing patterns file for isolated testing
+rm -f "$WORK/logs/failure-patterns.json"
+
+record_failure_pattern "$WORK" "Integration Wiring" "missing import" "check imports before tests"
+
+assert_eq "record_failure_pattern: creates file" "true" "$(test -f "$WORK/logs/failure-patterns.json" && echo true || echo false)"
+
+# Record same pattern again — should increment frequency
+record_failure_pattern "$WORK" "Integration Wiring" "missing import" "check imports before tests"
+freq=$(jq '.[0].frequency' "$WORK/logs/failure-patterns.json")
+assert_eq "record_failure_pattern: increments frequency" "2" "$freq"
+
+# Record different pattern
+record_failure_pattern "$WORK" "Test Suite" "flaky assertion" "use deterministic comparisons"
+count=$(jq 'length' "$WORK/logs/failure-patterns.json")
+assert_eq "record_failure_pattern: adds new pattern" "2" "$count"
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

@@ -162,6 +162,14 @@ Focus on fixing the root cause. Check test output carefully."
                     notify_failure "$plan_name" "$batch" "0" "?" "Quality gate failed" "$ON_FAILURE" || true
                 fi
 
+                # Record failure pattern for cross-run learning
+                local fail_type="quality gate failure"
+                if [[ -f "$log_file" ]]; then
+                    fail_type=$(grep -oE "(FAIL|ERROR|FAILED).*" "$log_file" | head -1 | cut -c1-80 || echo "quality gate failure")
+                    [[ -z "$fail_type" ]] && fail_type="quality gate failure"
+                fi
+                record_failure_pattern "$WORKTREE" "$title" "$fail_type" "" || true
+
                 # Handle failure mode
                 if [[ "$ON_FAILURE" == "stop" ]]; then
                     echo "STOPPING: --on-failure=stop. Fix issues and use --resume to continue."
