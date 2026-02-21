@@ -32,6 +32,7 @@ ollama_extract_json() {
     if echo "$text" | jq . >/dev/null 2>&1; then
         echo "$text"
     else
+        echo "WARNING: ollama_extract_json: invalid JSON in response" >&2
         echo ""
     fi
 }

@@ -146,7 +146,6 @@ if [[ -x "$QUALITY_GATE" ]]; then
   echo "  Using composite quality gate: $QUALITY_GATE"
 else
   # Fallback: use detect_project_type if quality-gate.sh not available
-  local project_type
   project_type=$(detect_project_type "$PROJECT_DIR")
   case "$project_type" in
     python)  QUALITY_CHECKS="pytest --timeout=120 -x -q" ;;

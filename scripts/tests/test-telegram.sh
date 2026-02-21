@@ -56,6 +56,17 @@ cat > "$WORK/valid.env" << 'ENVFILE'
 TELEGRAM_BOT_TOKEN=test-token-123
 TELEGRAM_CHAT_ID=test-chat-456
 ENVFILE
+# File with export prefix
+cat > "$WORK/export.env" << 'ENVFILE'
+export TELEGRAM_BOT_TOKEN=export-token-789
+export TELEGRAM_CHAT_ID=export-chat-012
+ENVFILE
+assert_exit "_load_telegram_env: export prefix returns 0" 0 \
+    _load_telegram_env "$WORK/export.env"
+assert_eq "_load_telegram_env: export token parsed" "export-token-789" "$TELEGRAM_BOT_TOKEN"
+assert_eq "_load_telegram_env: export chat_id parsed" "export-chat-012" "$TELEGRAM_CHAT_ID"
+
+# File with both keys (no export)
 assert_exit "_load_telegram_env: valid file returns 0" 0 \
     _load_telegram_env "$WORK/valid.env"
 assert_eq "_load_telegram_env: token loaded" "test-token-123" "$TELEGRAM_BOT_TOKEN"

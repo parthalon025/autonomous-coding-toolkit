@@ -15,8 +15,9 @@ Composite quality gate for the Ralph loop. Runs checks in order, stops at first 
 
 Checks:
   1. Lesson check — runs lesson-check.sh on git-changed files in project root
-  2. Project test suite — auto-detects pytest / npm test / make test
-  3. Memory warning — warns if available memory < 4G (never fails)
+  2. Lint check — ruff (Python) or eslint (Node) if available
+  3. Project test suite — auto-detects pytest / npm test / make test
+  4. Memory warning — warns if available memory < 4G (never fails)
 
 Options:
   --project-root <dir>  Project directory to check (required)
@@ -142,7 +143,7 @@ if [[ $test_ran -eq 0 ]]; then
     echo "No test suite detected (no pyproject.toml/setup.py/pytest.ini, no npm test script, no Makefile test target) — skipped"
 fi
 
-# === Check 3: Memory warning (advisory only) ===
+# === Check 4: Memory warning (advisory only) ===
 echo ""
 echo "=== Quality Gate: Memory Check ==="
 if check_memory_available 4; then

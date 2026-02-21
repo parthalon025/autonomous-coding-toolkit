@@ -47,7 +47,7 @@ val=$(echo '```json
 key=$(echo "$val" | jq -r '.key')
 assert_eq "ollama_extract_json: strips fences and validates" "value" "$key"
 
-val=$(echo 'not json at all' | ollama_extract_json)
+val=$(echo 'not json at all' | ollama_extract_json 2>/dev/null)
 assert_eq "ollama_extract_json: returns empty on invalid" "" "$val"
 
 # === Summary ===
