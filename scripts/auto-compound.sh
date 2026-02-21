@@ -118,6 +118,24 @@ else
 fi
 echo ""
 
+# Step 2.5: Prior art search
+echo "🔎 Step 2.5: Searching for prior art..."
+if [[ "$DRY_RUN" == "true" ]]; then
+  echo "  [dry-run] Would search: $PRIORITY"
+else
+  PRIOR_ART=$("$SCRIPT_DIR/prior-art-search.sh" "$PRIORITY" 2>&1 || true)
+  echo "$PRIOR_ART" | head -20
+  # Save for PRD context
+  echo "$PRIOR_ART" > prior-art-results.txt
+  echo "  Saved to prior-art-results.txt"
+
+  # Append to progress.txt
+  echo "## Prior Art Search: $PRIORITY" >> progress.txt
+  echo "$PRIOR_ART" | head -10 >> progress.txt
+  echo "" >> progress.txt
+fi
+echo ""
+
 # Step 3: Generate PRD
 echo "📋 Step 3: Generating PRD..."
 if [[ "$DRY_RUN" == "true" ]]; then
@@ -125,8 +143,13 @@ if [[ "$DRY_RUN" == "true" ]]; then
   echo "  [dry-run] Would create tasks/prd.json"
 else
   mkdir -p tasks
+  # Include prior art if available
+  prior_art_context=""
+  if [[ -f "prior-art-results.txt" ]]; then
+      prior_art_context=" Prior art found: $(head -20 prior-art-results.txt)"
+  fi
   # Use Claude to generate the PRD
-  prd_output=$(claude --print "/create-prd $PRIORITY. Context from analysis: $(cat analysis.json)" 2>&1) || {
+  prd_output=$(claude --print "/create-prd $PRIORITY. Context from analysis: $(cat analysis.json).$prior_art_context" 2>&1) || {
       echo "WARNING: PRD generation failed:" >&2
       echo "$prd_output" | tail -10 >&2
   }
