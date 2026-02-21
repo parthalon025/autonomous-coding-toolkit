@@ -32,8 +32,8 @@ _load_telegram_env() {
         return 1
     fi
 
-    TELEGRAM_BOT_TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' "$env_file" | head -1 | cut -d= -f2-)
-    TELEGRAM_CHAT_ID=$(grep -E '^TELEGRAM_CHAT_ID=' "$env_file" | head -1 | cut -d= -f2-)
+    TELEGRAM_BOT_TOKEN=$(grep -E '^(export )?TELEGRAM_BOT_TOKEN=' "$env_file" | head -1 | sed 's/^export //' | cut -d= -f2-)
+    TELEGRAM_CHAT_ID=$(grep -E '^(export )?TELEGRAM_CHAT_ID=' "$env_file" | head -1 | sed 's/^export //' | cut -d= -f2-)
 
     if [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TELEGRAM_CHAT_ID:-}" ]]; then
         echo "WARNING: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not found in $env_file" >&2
