@@ -1,0 +1,13 @@
+{
+  "name": "autonomous-coding-toolkit",
+  "description": "Complete autonomous coding pipeline: skills for every stage from brainstorming through verification, quality gates between batches, headless execution, and a lessons-learned feedback loop that compounds with every user",
+  "version": "1.0.0",
+  "author": {
+    "name": "Justin McFarland",
+    "email": "parthalon025@gmail.com"
+  },
+  "homepage": "https://github.com/parthalon025/autonomous-coding-toolkit",
+  "repository": "https://github.com/parthalon025/autonomous-coding-toolkit",
+  "license": "MIT",
+  "keywords": ["autonomous", "tdd", "quality-gates", "headless", "skills", "pipeline", "lessons-learned"]
+}

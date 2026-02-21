@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "autonomous-coding-toolkit",
+  "description": "Autonomous coding pipeline with quality gates, fresh-context execution, and community lessons",
+  "owner": {
+    "name": "Justin McFarland",
+    "email": "parthalon025@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "autonomous-coding-toolkit",
+      "description": "Complete autonomous coding pipeline with skills, agents, scripts, and a community lesson system that improves with every user",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "Justin McFarland",
+        "email": "parthalon025@gmail.com"
+      },
+      "category": "development"
+    }
+  ]
+}
