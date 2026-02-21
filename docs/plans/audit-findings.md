@@ -1,6 +1,6 @@
-# Shellcheck & Lesson Scanner Audit Findings
+# Hardening Pass Audit Findings
 
-> Generated: 2026-02-21 | shellcheck 0.9.0 | Batch 1 of hardening pass
+> Generated: 2026-02-21 | Batches 1-2 of hardening pass
 
 ---
 
@@ -78,3 +78,50 @@ This is a pure bash toolkit — no Python/JS/TS source files exist. Lesson scann
 ### Conclusion
 
 No lesson violations found. The toolkit's bash-only codebase is not covered by the current syntactic lesson set (which targets Python/JS). Future work: add bash-specific lessons (e.g., unquoted variables, missing `set -euo pipefail`).
+
+---
+
+## Lesson File Schema Validation (Batch 2)
+
+### Method
+
+Validated all 6 lesson files (`docs/lessons/0001-*.md` through `0006-*.md`) against the schema defined in `docs/lessons/TEMPLATE.md`.
+
+**Required fields checked:**
+- `id` (integer), `title` (non-empty), `severity` (blocker|should-fix|nice-to-have)
+- `languages` (array or `all`), `category` (enum of 6 values)
+- `pattern.type` (syntactic|semantic), `pattern.regex` (required if syntactic), `pattern.description`
+- `fix` (non-empty), `example.bad` (non-empty), `example.good` (non-empty)
+
+### Schema Results
+
+| File | id | severity | category | pattern.type | regex | All fields | Status |
+|------|----|----------|----------|-------------|-------|------------|--------|
+| `0001-bare-exception-swallowing.md` | 1 | blocker | silent-failures | syntactic | `^\s*except\s*:` | ✓ | PASS |
+| `0002-async-def-without-await.md` | 2 | blocker | async-traps | semantic | N/A | ✓ | PASS |
+| `0003-create-task-without-callback.md` | 3 | should-fix | silent-failures | semantic | N/A | ✓ | PASS |
+| `0004-hardcoded-test-counts.md` | 4 | should-fix | test-anti-patterns | syntactic | `assert.*==\s*\d+\|...` | ✓ | PASS |
+| `0005-sqlite-without-closing.md` | 5 | should-fix | silent-failures | syntactic | `sqlite3\.connect\(` | ✓ | PASS |
+| `0006-venv-pip-path.md` | 6 | should-fix | integration-boundaries | syntactic | `\.venv/bin/pip\b` | ✓ | PASS |
+
+**6/6 lesson files pass schema validation.** All required fields present, all enum values valid.
+
+### Regex Compilation Results
+
+Tested all 4 syntactic lesson regex patterns with `grep -P`:
+
+| Lesson | Regex | Compiles | Status |
+|--------|-------|----------|--------|
+| 0001 | `^\s*except\s*:` | ✓ | PASS |
+| 0004 | `assert.*==\s*\d+\|expect\(.*\)\.toBe\(\d+\)\|assert_equal.*\d+` | ✓ | PASS |
+| 0005 | `sqlite3\.connect\(` | ✓ | PASS |
+| 0006 | `\.venv/bin/pip\b` | ✓ | PASS |
+
+**4/4 syntactic regex patterns compile successfully** (grep -P exit code 0 or 1).
+
+### Observations
+
+- All lessons use valid enum values for `severity` and `category`
+- Semantic lessons (0002, 0003) correctly omit `regex` field
+- ID sequence is contiguous (1-6) with no gaps
+- No issues found — lesson schema is clean
