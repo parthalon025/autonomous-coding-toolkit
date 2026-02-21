@@ -71,6 +71,19 @@ mkdir -p "$WORK/empty"
 val=$(detect_project_type "$WORK/empty")
 assert_eq "detect_project_type: empty -> unknown" "unknown" "$val"
 
+# Bash project detection (run-all-tests.sh)
+mkdir -p "$WORK/bash-proj/scripts/tests"
+echo '#!/bin/bash' > "$WORK/bash-proj/scripts/tests/run-all-tests.sh"
+chmod +x "$WORK/bash-proj/scripts/tests/run-all-tests.sh"
+val=$(detect_project_type "$WORK/bash-proj")
+assert_eq "detect_project_type: bash project with run-all-tests.sh" "bash" "$val"
+
+# Bash project with test-*.sh glob
+mkdir -p "$WORK/bash-proj2/scripts/tests"
+touch "$WORK/bash-proj2/scripts/tests/test-foo.sh"
+val=$(detect_project_type "$WORK/bash-proj2")
+assert_eq "detect_project_type: bash project with test-*.sh files" "bash" "$val"
+
 # === strip_json_fences tests ===
 
 val=$(echo '```json

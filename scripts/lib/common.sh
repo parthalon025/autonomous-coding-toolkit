@@ -4,7 +4,7 @@
 # Source this in any script: source "$SCRIPT_DIR/lib/common.sh"
 #
 # Functions:
-#   detect_project_type <dir>              -> "python"|"node"|"make"|"unknown"
+#   detect_project_type <dir>              -> "python"|"node"|"make"|"bash"|"unknown"
 #   strip_json_fences                      -> stdin filter: remove ```json wrappers
 #   check_memory_available <threshold_gb>  -> exit 0 if available >= threshold, 1 otherwise
 #   require_command <cmd> [install_hint]   -> exit 1 with message if cmd not found
@@ -17,6 +17,8 @@ detect_project_type() {
         echo "node"
     elif [[ -f "$dir/Makefile" ]]; then
         echo "make"
+    elif [[ -x "$dir/scripts/tests/run-all-tests.sh" ]] || ls "$dir"/scripts/tests/test-*.sh >/dev/null 2>&1; then
+        echo "bash"
     else
         echo "unknown"
     fi

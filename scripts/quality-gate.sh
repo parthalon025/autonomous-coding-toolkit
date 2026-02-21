@@ -152,6 +152,13 @@ case "$project_type" in
             test_ran=1
         fi
         ;;
+    bash)
+        if [[ -x "$PROJECT_ROOT/scripts/tests/run-all-tests.sh" ]]; then
+            echo "Detected: bash project (run-all-tests.sh)"
+            "$PROJECT_ROOT/scripts/tests/run-all-tests.sh"
+            test_ran=1
+        fi
+        ;;
 esac
 
 if [[ $test_ran -eq 0 ]]; then
