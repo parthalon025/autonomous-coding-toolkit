@@ -1,0 +1,25 @@
+# State files (generated during execution)
+.run-plan-state.json
+logs/
+progress.txt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Sensitive
+.env
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# run-plan-state.sh — Track batch progress in a JSON state file
+#
+# State file: <worktree>/.run-plan-state.json
+# Requires: jq
+#
+# Functions:
+#   init_state <worktree> <plan_file> <mode>           -> create state file
+#   read_state_field <worktree> <field>                 -> read top-level field
+#   complete_batch <worktree> <batch_num> <test_count>  -> mark batch done
+#   get_previous_test_count <worktree>                  -> last completed batch's test count (0 if none)
+#   set_quality_gate <worktree> <batch_num> <passed> <test_count> -> record quality gate result
+
+_state_file() {
+    echo "$1/.run-plan-state.json"
+}
+
+init_state() {
+    local worktree="$1" plan_file="$2" mode="$3"
+    local sf
+    sf=$(_state_file "$worktree")
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    jq -n \
+        --arg plan_file "$plan_file" \
+        --arg mode "$mode" \
+        --arg started_at "$now" \
+        '{
+            plan_file: $plan_file,
+            mode: $mode,
+            current_batch: 1,
+            completed_batches: [],
+            test_counts: {},
+            started_at: $started_at,
+            last_quality_gate: null
+        }' > "$sf"
+}
+
+read_state_field() {
+    local worktree="$1" field="$2"
+    local sf
+    sf=$(_state_file "$worktree")
+    jq -c -r --arg f "$field" '.[$f]' "$sf"
+}
+
+complete_batch() {
+    local worktree="$1" batch_num="$2" test_count="$3"
+    local sf tmp
+    sf=$(_state_file "$worktree")
+    tmp=$(mktemp)
+
+    jq \
+        --argjson batch "$batch_num" \
+        --argjson tc "$test_count" \
+        '
+        .completed_batches += [$batch] |
+        .current_batch = ($batch + 1) |
+        .test_counts[($batch | tostring)] = $tc
+        ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+}
+
+get_previous_test_count() {
+    local worktree="$1"
+    local sf
+    sf=$(_state_file "$worktree")
+
+    jq -r '
+        if (.completed_batches | length) == 0 then "0"
+        else .test_counts[(.completed_batches | last | tostring)] | tostring
+        end
+    ' "$sf"
+}
+
+set_quality_gate() {
+    local worktree="$1" batch_num="$2" passed="$3" test_count="$4"
+    local sf tmp now
+    sf=$(_state_file "$worktree")
+    tmp=$(mktemp)
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    jq \
+        --argjson batch "$batch_num" \
+        --argjson passed "$passed" \
+        --argjson tc "$test_count" \
+        --arg ts "$now" \
+        '
+        .last_quality_gate = {
+            batch: $batch,
+            passed: $passed,
+            test_count: $tc,
+            timestamp: $ts
+        }
+        ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+}

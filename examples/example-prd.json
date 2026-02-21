@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "title": "Create project structure",
+    "description": "Initialize directory layout with src/, tests/, and pyproject.toml",
+    "acceptance_criteria": [
+      "test -d src",
+      "test -d tests",
+      "test -f pyproject.toml",
+      "grep -q 'pytest' pyproject.toml"
+    ],
+    "passes": false,
+    "blocked_by": []
+  },
+  {
+    "id": 2,
+    "title": "Add configuration module",
+    "description": "Create src/config.py that loads settings from environment variables with sensible defaults",
+    "acceptance_criteria": [
+      "test -f src/config.py",
+      "python3 -c 'from src.config import Settings; s = Settings(); assert s is not None'",
+      "pytest tests/test_config.py -x"
+    ],
+    "passes": false,
+    "blocked_by": [1]
+  },
+  {
+    "id": 3,
+    "title": "Implement data parser",
+    "description": "Parse CSV input files into structured records with graceful error handling",
+    "acceptance_criteria": [
+      "test -f src/parser.py",
+      "pytest tests/test_parser.py -x",
+      "pytest tests/test_parser.py -k 'malformed' -x"
+    ],
+    "passes": false,
+    "blocked_by": [1]
+  },
+  {
+    "id": 4,
+    "title": "Implement transformer",
+    "description": "Transform parsed records into output format with configurable field mapping",
+    "acceptance_criteria": [
+      "test -f src/transformer.py",
+      "pytest tests/test_transformer.py -x"
+    ],
+    "passes": false,
+    "blocked_by": [3]
+  },
+  {
+    "id": 5,
+    "title": "Wire end-to-end pipeline",
+    "description": "Connect parser, transformer, and output writer into a single pipeline",
+    "acceptance_criteria": [
+      "test -f src/pipeline.py",
+      "pytest tests/test_pipeline.py -x"
+    ],
+    "passes": false,
+    "blocked_by": [3, 4]
+  },
+  {
+    "id": 6,
+    "title": "Run full quality gate",
+    "description": "Ensure all tests pass and no anti-patterns exist in the codebase",
+    "acceptance_criteria": [
+      "pytest tests/ -x",
+      "scripts/lesson-check.sh src/*.py"
+    ],
+    "passes": false,
+    "blocked_by": [1, 2, 3, 4, 5]
+  }
+]
