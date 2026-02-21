@@ -8,10 +8,10 @@ This toolkit implements an **autonomous coding pipeline**: you write a plan in m
 
 ### The Skill Chain
 
-Skills are loaded by Claude Code and define HOW to execute each stage:
+Skills are loaded by Claude Code and define HOW to execute each stage. The `autocode` skill orchestrates the full chain:
 
 ```
-brainstorming → writing-plans → using-git-worktrees → [execution mode] → verification-before-completion → finishing-a-development-branch
+/autocode → brainstorming → PRD → writing-plans → using-git-worktrees → [execution mode] → verification-before-completion → finishing-a-development-branch
 ```
 
 | Stage | Skill | Purpose |

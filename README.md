@@ -17,17 +17,38 @@ Each unit of work gets a fresh context window. Quality gates run between batches
 ## Quick Start
 
 ```bash
-# 1. Write a plan (see examples/example-plan.md for format)
+# Full pipeline — brainstorm → PRD → plan → execute → verify → finish
+/autocode "Add user authentication with JWT"
 
-# 2. Run it headless
-scripts/run-plan.sh docs/plans/my-feature.md
-
-# 3. Resume if interrupted
-scripts/run-plan.sh --resume
-
-# 4. Run with retries and Telegram notifications
+# Or step-by-step with headless execution
 scripts/run-plan.sh docs/plans/my-feature.md --on-failure retry --max-retries 3 --notify
+
+# Resume if interrupted
+scripts/run-plan.sh --resume
 ```
+
+## The Autocode Pipeline
+
+`/autocode` runs the full pipeline end-to-end with Telegram notifications at each stage:
+
+```mermaid
+flowchart LR
+    A["/autocode\n'Add feature X'"] --> B["Stage 1\nBrainstorm"]
+    B --> C["Stage 2\nPRD"]
+    C --> D["Stage 3\nPlan"]
+    D --> E["Stage 4\nExecute"]
+    E --> F["Stage 5\nVerify"]
+    F --> G["Stage 6\nFinish"]
+
+    B -->|"design doc"| C
+    C -->|"prd.json"| D
+    D -->|"plan.md"| E
+    E -->|"all batches pass"| F
+    F -->|"all criteria pass"| G
+    G -->|"merge / PR / keep"| H((Done))
+```
+
+Each stage has **hard gates** — you cannot proceed until exit criteria are met.
 
 ## The Skill Chain
 
@@ -70,6 +91,11 @@ brainstorming → writing-plans → using-git-worktrees → [execution mode] →
 └── marketplace.json
 
 skills/                          # Claude Code skills (loaded via Skill tool)
+├── autocode/                    # Full pipeline orchestrator
+│   ├── SKILL.md                 # brainstorm → PRD → plan → execute → verify → finish
+│   ├── competitive-mode.md      # Dual-track execution with judge scoring
+│   ├── code-quality-standards.md # Shared quality standards for all agents
+│   └── ab-verification.md       # Post-completion dual-axis verification
 ├── brainstorming/SKILL.md
 ├── writing-plans/SKILL.md
 ├── executing-plans/SKILL.md
@@ -97,7 +123,8 @@ skills/                          # Claude Code skills (loaded via Skill tool)
 └── verify/SKILL.md
 
 commands/                        # Claude Code slash commands
-├── code-factory.md              # /code-factory — full pipeline
+├── autocode.md                  # /autocode — full pipeline (invokes autocode skill)
+├── code-factory.md              # /code-factory — full pipeline (legacy alias)
 ├── create-prd.md                # /create-prd — machine-verifiable PRD
 ├── run-plan.md                  # /run-plan — in-session batch execution
 ├── ralph-loop.md                # /ralph-loop — autonomous iteration loop
@@ -132,6 +159,26 @@ docs/
 ```
 
 ## Execution Modes
+
+```mermaid
+flowchart TD
+    P["Plan ready"] --> Q{"How many batches?"}
+    Q -->|"1-3"| A["In-session\n(execute here)"]
+    Q -->|"5-15 independent tasks"| B["Subagent\n(fresh agent per task)"]
+    Q -->|"4+ batches"| C["Headless\n(claude -p per batch)"]
+    Q -->|"iterate until done"| D["Ralph Loop\n(stop-hook re-inject)"]
+
+    A --> QG["Quality Gate\n(between every batch)"]
+    B --> QG
+    C --> QG
+    D --> QG
+
+    QG -->|pass| NEXT["Next batch"]
+    QG -->|fail| FIX["Fix → re-run gate"]
+    FIX --> QG
+    NEXT --> QG
+    NEXT -->|"all done"| V["Verify"]
+```
 
 ### Mode C: Headless (default, fully autonomous)
 
@@ -168,10 +215,30 @@ Two agents implement the same batch in separate git worktrees. A judge picks the
 scripts/run-plan.sh docs/plans/feature.md --mode competitive --competitive-batches 5,8
 ```
 
-- Teammate-A and Teammate-B work in parallel on isolated worktrees
-- Judge compares: tests passing, spec compliance, code quality
-- Winner's commits cherry-picked into main worktree
-- Only activates for critical batches (others fall back to Mode A)
+```mermaid
+flowchart TD
+    PRE["Pre-flight\nExploration"] --> |"context brief"| A["Competitor A\n(TDD strategy)\nworktree-a"]
+    PRE --> |"context brief"| B["Competitor B\n(Iterative strategy)\nworktree-b"]
+
+    A --> J["Judge Agent"]
+    B --> J
+
+    J --> |"score: spec 0.35 + quality 0.25\n+ tests 0.25 + cohesion 0.15"| V{"Verdict"}
+
+    V -->|"A wins"| CP["Cherry-pick A\n+ merge best of B"]
+    V -->|"B wins"| CPB["Cherry-pick B\n+ merge best of A"]
+    V -->|"HYBRID"| H["Per-task/file\nattribution"]
+
+    CP --> CLEAN["Cleanup worktrees"]
+    CPB --> CLEAN
+    H --> CLEAN
+```
+
+- Pre-flight agents explore codebase + search external prior art before competitors start
+- Judge uses structured checks (anti-mock, type duplication, endpoint verification, integration seams)
+- **Mandatory best-of-both synthesis** — valuable fixes from the loser are always merged
+- Cross-round learning — judge's LESSONS feed into next batch's competitor prompts
+- Full templates and scoring rubric in `skills/autocode/competitive-mode.md`
 
 ## Plan File Format
 
@@ -200,6 +267,20 @@ Create `src/config.py` with environment variable loading.
 See `examples/example-plan.md` for a complete example.
 
 ## Quality Gates
+
+```mermaid
+flowchart LR
+    B["Batch\ncomplete"] --> L["Lesson Check\n(<2s, grep)"]
+    L -->|pass| T["Test Suite\n(auto-detect)"]
+    L -->|fail| BLOCK["❌ Block"]
+    T -->|pass| M["Memory Check\n(advisory)"]
+    T -->|fail| BLOCK
+    M --> R{"Test count\n>= previous?"}
+    R -->|yes| GIT{"Git\nclean?"}
+    R -->|no| BLOCK
+    GIT -->|yes| NEXT["✅ Next batch"]
+    GIT -->|no| BLOCK
+```
 
 Quality gates run automatically between batches. The default gate (`quality-gate.sh`) runs three checks:
 
@@ -288,7 +369,8 @@ git clone https://github.com/parthalon025/autonomous-coding-toolkit.git
 
 The `commands/` directory contains slash commands for use inside Claude Code sessions:
 
-- **`/code-factory`** — Full pipeline: brainstorm → PRD → plan → execute → verify
+- **`/autocode`** — Full pipeline: brainstorm → PRD → plan → execute → verify → finish (with Telegram notifications)
+- **`/code-factory`** — Full pipeline (legacy alias, same as `/autocode`)
 - **`/create-prd`** — Generate a PRD with machine-verifiable acceptance criteria
 - **`/run-plan`** — In-session batch execution with quality gates
 - **`/ralph-loop`** — Start autonomous iteration loop (stop-hook re-injects prompt until completion)

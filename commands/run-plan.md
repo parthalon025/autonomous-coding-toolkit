@@ -67,15 +67,13 @@ If the reviewer finds issues, send fixes back to the implementer. Then run the q
 
 ### Mode: competitive
 For critical batches (marked `⚠ CRITICAL` in the plan or specified via `--competitive-batches`):
-1. Create two git worktrees: `.worktrees/competitor-a` and `.worktrees/competitor-b`
-2. Spawn two implementer agents, one per worktree, with different strategies
-3. After both finish, spawn a judge agent to compare:
-   - Tests passing (binary gate)
-   - Spec compliance (weight: 0.4)
-   - Code quality (weight: 0.3)
-   - Test coverage (weight: 0.3)
-4. Cherry-pick the winner's commits into the main worktree
-5. Clean up both competitor worktrees
+
+See `skills/autocode/competitive-mode.md` for the full competitive execution flow including:
+- Pre-flight exploration (codebase explorer + external research agents)
+- Competitor A (TDD) and Competitor B (Iterative) prompt templates
+- Judge scoring rubric with SCORE ANCHORS, structured checks, and hybrid evaluation
+- Mandatory best-of-both synthesis and loser merge
+- Cross-round learning (LESSONS FOR NEXT ROUND)
 
 Non-critical batches fall back to team mode.
 
