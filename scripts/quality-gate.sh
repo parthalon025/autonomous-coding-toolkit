@@ -4,6 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 PROJECT_ROOT=""
 
 usage() {
@@ -71,24 +72,71 @@ else
     echo "lesson-check: no changed files — skipped"
 fi
 
-# === Check 2: Project test suite (auto-detect) ===
+# === Check 2: Lint Check ===
+echo ""
+echo "=== Quality Gate: Lint Check ==="
+lint_ran=0
+
+case "$(detect_project_type "$PROJECT_ROOT")" in
+    python)
+        if command -v ruff >/dev/null 2>&1; then
+            echo "Running: ruff check --select E,W,F"
+            if ! ruff check --select E,W,F "$PROJECT_ROOT" 2>/dev/null; then
+                echo ""
+                echo "quality-gate: FAILED at lint check"
+                exit 1
+            fi
+            lint_ran=1
+        else
+            echo "ruff not installed — skipping Python lint"
+        fi
+        ;;
+    node)
+        if [[ -f "$PROJECT_ROOT/.eslintrc" || -f "$PROJECT_ROOT/.eslintrc.js" || -f "$PROJECT_ROOT/.eslintrc.json" || -f "$PROJECT_ROOT/eslint.config.js" ]]; then
+            echo "Running: npx eslint"
+            if ! npx eslint "$PROJECT_ROOT" 2>/dev/null; then
+                echo ""
+                echo "quality-gate: FAILED at lint check"
+                exit 1
+            fi
+            lint_ran=1
+        else
+            echo "No eslint config found — skipping Node lint"
+        fi
+        ;;
+esac
+
+if [[ $lint_ran -eq 0 ]]; then
+    echo "No linter configured — skipped"
+fi
+
+# === Check 3: Project test suite (auto-detect) ===
 echo ""
 echo "=== Quality Gate: Test Suite ==="
 test_ran=0
 
-if [[ -f pyproject.toml || -f setup.py || -f pytest.ini ]]; then
-    echo "Detected: pytest project"
-    .venv/bin/python -m pytest --timeout=120 -x -q
-    test_ran=1
-elif [[ -f package.json ]] && grep -q '"test"' package.json 2>/dev/null; then
-    echo "Detected: npm project"
-    npm test
-    test_ran=1
-elif [[ -f Makefile ]] && grep -q '^test:' Makefile 2>/dev/null; then
-    echo "Detected: Makefile project"
-    make test
-    test_ran=1
-fi
+project_type=$(detect_project_type "$PROJECT_ROOT")
+case "$project_type" in
+    python)
+        echo "Detected: pytest project"
+        .venv/bin/python -m pytest --timeout=120 -x -q
+        test_ran=1
+        ;;
+    node)
+        if grep -q '"test"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+            echo "Detected: npm project"
+            npm test
+            test_ran=1
+        fi
+        ;;
+    make)
+        if grep -q '^test:' "$PROJECT_ROOT/Makefile" 2>/dev/null; then
+            echo "Detected: Makefile project"
+            make test
+            test_ran=1
+        fi
+        ;;
+esac
 
 if [[ $test_ran -eq 0 ]]; then
     echo "No test suite detected (no pyproject.toml/setup.py/pytest.ini, no npm test script, no Makefile test target) — skipped"
@@ -97,13 +145,11 @@ fi
 # === Check 3: Memory warning (advisory only) ===
 echo ""
 echo "=== Quality Gate: Memory Check ==="
-available_gb=$(free -g | awk '/Mem:/{print $7}')
-if [[ "$available_gb" -lt 4 ]]; then
-    # Get more precise value for the message
-    available_human=$(free -h | awk '/Mem:/{print $7}')
-    echo "WARNING: Low memory (${available_human} available) — consider -n 0 for pytest"
-else
+if check_memory_available 4; then
+    available_gb=$(free -g | awk '/Mem:/{print $7}')
     echo "Memory OK (${available_gb}G available)"
+else
+    echo "WARNING: Consider -n 0 for pytest"
 fi
 
 echo ""

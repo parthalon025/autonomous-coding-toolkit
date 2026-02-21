@@ -137,6 +137,24 @@ assert_eq "failed quality gate batch" "3" "$val"
 val=$(jq -r '.last_quality_gate.passed' "$WORK/.run-plan-state.json")
 assert_eq "failed quality gate passed" "false" "$val"
 
+# --- Test: complete_batch stores duration ---
+WORK3=$(mktemp -d)
+trap "rm -rf '$WORK' '$WORK2' '$WORK3'" EXIT
+init_state "$WORK3" "plan.md" "headless"
+complete_batch "$WORK3" 1 42 120
+
+duration=$(jq -r '.durations["1"]' "$WORK3/.run-plan-state.json")
+assert_eq "complete_batch: stores duration" "120" "$duration"
+
+# --- Test: duration defaults to 0 when not provided ---
+complete_batch "$WORK3" 2 55
+duration=$(jq -r '.durations["2"]' "$WORK3/.run-plan-state.json")
+assert_eq "complete_batch: duration defaults to 0" "0" "$duration"
+
+# --- Test: init_state includes durations object ---
+val=$(jq -r '.durations | type' "$WORK3/.run-plan-state.json")
+assert_eq "init_state: has durations object" "object" "$val"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

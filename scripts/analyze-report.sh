@@ -13,6 +13,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/ollama.sh"
+
 REPORT_FILE="${1:-}"
 DRY_RUN=false
 MODEL="deepseek-r1:8b"
@@ -72,42 +76,21 @@ if [[ "$DRY_RUN" == "true" ]]; then
   exit 0
 fi
 
-# Check if ollama-queue is available, fall back to direct ollama
-OLLAMA_URL="http://localhost:11434"
-if curl -s -o /dev/null -w '%{http_code}' "http://localhost:7683/health" 2>/dev/null | grep -q "200"; then
-  echo "Using ollama-queue for serialized execution..." >&2
-  # Submit via queue API
-  RESPONSE=$(curl -s "http://localhost:7683/api/generate" \
-    -d "{\"model\":\"$MODEL\",\"prompt\":$(echo "$PROMPT" | jq -Rs .),\"stream\":false}" \
-    --max-time 300)
-else
-  echo "Using direct Ollama API..." >&2
-  RESPONSE=$(curl -s "$OLLAMA_URL/api/generate" \
-    -d "{\"model\":\"$MODEL\",\"prompt\":$(echo "$PROMPT" | jq -Rs .),\"stream\":false}" \
-    --max-time 300)
-fi
-
-# Extract response text
-ANALYSIS=$(echo "$RESPONSE" | jq -r '.response // empty')
+# Query Ollama (uses queue if available, falls back to direct)
+ANALYSIS=$(ollama_query "$MODEL" "$PROMPT")
 
 if [[ -z "$ANALYSIS" ]]; then
   echo "Error: Empty response from Ollama" >&2
-  echo "Full response: $RESPONSE" >&2
   exit 1
 fi
 
-# Try to parse as JSON, wrap in error if not valid
-if echo "$ANALYSIS" | jq . >/dev/null 2>&1; then
-  echo "$ANALYSIS" | jq . > "$OUTPUT_DIR/analysis.json"
-else
-  # LLM sometimes wraps in markdown fences
-  CLEANED=$(echo "$ANALYSIS" | sed 's/^```json//' | sed 's/^```//' | sed 's/```$//')
-  if echo "$CLEANED" | jq . >/dev/null 2>&1; then
+# Parse as JSON
+CLEANED=$(echo "$ANALYSIS" | ollama_extract_json)
+if [[ -n "$CLEANED" ]]; then
     echo "$CLEANED" | jq . > "$OUTPUT_DIR/analysis.json"
-  else
+else
     echo "Warning: Could not parse LLM response as JSON, saving raw" >&2
     echo "{\"raw_response\": $(echo "$ANALYSIS" | jq -Rs .)}" > "$OUTPUT_DIR/analysis.json"
-  fi
 fi
 
 echo "Analysis saved to $OUTPUT_DIR/analysis.json" >&2

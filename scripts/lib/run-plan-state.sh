@@ -7,7 +7,7 @@
 # Functions:
 #   init_state <worktree> <plan_file> <mode>           -> create state file
 #   read_state_field <worktree> <field>                 -> read top-level field
-#   complete_batch <worktree> <batch_num> <test_count>  -> mark batch done
+#   complete_batch <worktree> <batch_num> <test_count> [duration]  -> mark batch done
 #   get_previous_test_count <worktree>                  -> last completed batch's test count (0 if none)
 #   set_quality_gate <worktree> <batch_num> <passed> <test_count> -> record quality gate result
 
@@ -32,6 +32,7 @@ init_state() {
             current_batch: 1,
             completed_batches: [],
             test_counts: {},
+            durations: {},
             started_at: $started_at,
             last_quality_gate: null
         }' > "$sf"
@@ -45,7 +46,7 @@ read_state_field() {
 }
 
 complete_batch() {
-    local worktree="$1" batch_num="$2" test_count="$3"
+    local worktree="$1" batch_num="$2" test_count="$3" duration="${4:-0}"
     local sf tmp
     sf=$(_state_file "$worktree")
     tmp=$(mktemp)
@@ -53,10 +54,12 @@ complete_batch() {
     jq \
         --argjson batch "$batch_num" \
         --argjson tc "$test_count" \
+        --argjson dur "$duration" \
         '
         .completed_batches += [$batch] |
         .current_batch = ($batch + 1) |
-        .test_counts[($batch | tostring)] = $tc
+        .test_counts[($batch | tostring)] = $tc |
+        .durations[($batch | tostring)] = $dur
         ' "$sf" > "$tmp" && mv "$tmp" "$sf"
 }
 

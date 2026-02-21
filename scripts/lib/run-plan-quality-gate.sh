@@ -8,30 +8,53 @@
 #   extract_test_count <test_output>                          -> parse "N passed" from pytest output
 #   check_test_count_regression <new_count> <previous_count>  -> 0 if new >= previous, 1 otherwise
 #   check_git_clean <worktree>                                -> 0 if clean, 1 if dirty
-#   run_quality_gate <worktree> <quality_gate_cmd> <batch_num> -> full gate: cmd + regression + clean + state update
+#   run_quality_gate <worktree> <quality_gate_cmd> <batch_num> [duration] -> full gate: cmd + regression + clean + state update
 #
 # Requires: run-plan-state.sh sourced for run_quality_gate (state functions)
 
 QUALITY_GATE_SCRIPT="${QUALITY_GATE_SCRIPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../quality-gate.sh}"
 
-# Extract passed test count from pytest output.
-# Parses "N passed" pattern. Returns 0 if no match.
+# Extract passed test count from test output.
+# Supports pytest ("N passed"), jest ("Tests: N passed"), go test ("ok" lines).
+# Returns -1 if no recognized format found (signals "skip regression check").
 extract_test_count() {
     local output="$1"
     local count
-    # Match "N passed" — handles "85 passed" in lines like "3 failed, 85 passed, 2 skipped in 30.1s"
+
+    # 1. pytest: "N passed" (e.g., "85 passed" in "3 failed, 85 passed, 2 skipped in 30.1s")
     count=$(echo "$output" | grep -oP '\b(\d+) passed\b' | tail -1 | grep -oP '^\d+' || true)
     if [[ -n "$count" ]]; then
         echo "$count"
-    else
-        echo "0"
+        return
     fi
+
+    # 2. jest: "Tests: N passed" (e.g., "Tests:       45 passed, 48 total")
+    count=$(echo "$output" | grep -oP 'Tests:\s+(\d+ failed, )?\K\d+(?= passed)' || true)
+    if [[ -n "$count" ]]; then
+        echo "$count"
+        return
+    fi
+
+    # 3. go test: count "ok" lines (each = one passing package)
+    count=$(echo "$output" | grep -c '^ok' || true)
+    if [[ "$count" -gt 0 ]]; then
+        echo "$count"
+        return
+    fi
+
+    # 4. No recognized format — return -1 to signal "skip regression check"
+    echo "-1"
 }
 
 # Check for test count regression.
 # Returns 0 if new_count >= previous_count, 1 otherwise.
+# -1 means unrecognized format — skip regression check.
 check_test_count_regression() {
     local new_count="$1" previous_count="$2"
+    if [[ "$new_count" == "-1" || "$previous_count" == "-1" ]]; then
+        echo "INFO: Skipping test count regression check (unrecognized test format)" >&2
+        return 0
+    fi
     if [[ "$new_count" -ge "$previous_count" ]]; then
         return 0
     else
@@ -61,7 +84,7 @@ check_git_clean() {
 #
 # Requires run-plan-state.sh functions: get_previous_test_count, complete_batch, set_quality_gate
 run_quality_gate() {
-    local worktree="$1" quality_gate_cmd="$2" batch_num="$3"
+    local worktree="$1" quality_gate_cmd="$2" batch_num="$3" duration="${4:-0}"
     local gate_output gate_exit test_count previous_count passed
 
     echo "=== Quality Gate: Batch $batch_num ==="
@@ -97,7 +120,7 @@ run_quality_gate() {
     fi
 
     # 5. Update state — batch complete, gate passed
-    complete_batch "$worktree" "$batch_num" "$test_count"
+    complete_batch "$worktree" "$batch_num" "$test_count" "$duration"
     set_quality_gate "$worktree" "$batch_num" "true" "$test_count"
 
     echo "QUALITY GATE PASSED (batch $batch_num, $test_count tests)"

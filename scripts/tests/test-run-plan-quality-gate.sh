@@ -55,11 +55,11 @@ assert_eq "extract_test_count: passed without skipped" "42" "$val"
 
 # --- Test: extract from no tests ran ---
 val=$(extract_test_count "ERROR: no tests ran")
-assert_eq "extract_test_count: no tests ran" "0" "$val"
+assert_eq "extract_test_count: no tests ran" "-1" "$val"
 
 # --- Test: extract from empty string ---
 val=$(extract_test_count "")
-assert_eq "extract_test_count: empty string" "0" "$val"
+assert_eq "extract_test_count: empty string" "-1" "$val"
 
 # --- Test: extract from multi-line pytest output ---
 output="============================= test session starts ==============================
@@ -76,6 +76,27 @@ assert_eq "extract_test_count: full pytest output" "87" "$val"
 output="3 failed, 85 passed, 2 skipped in 30.1s"
 val=$(extract_test_count "$output")
 assert_eq "extract_test_count: with failures" "85" "$val"
+
+# --- Test: extract from jest output ---
+output="Tests:       3 failed, 45 passed, 48 total"
+val=$(extract_test_count "$output")
+assert_eq "extract_test_count: jest output" "45" "$val"
+
+# --- Test: extract from jest all-pass output ---
+output="Tests:       12 passed, 12 total"
+val=$(extract_test_count "$output")
+assert_eq "extract_test_count: jest all-pass" "12" "$val"
+
+# --- Test: extract from go test output ---
+output="ok  	github.com/foo/bar	0.123s
+ok  	github.com/foo/baz	0.456s
+FAIL	github.com/foo/qux	0.789s"
+val=$(extract_test_count "$output")
+assert_eq "extract_test_count: go test (2 ok of 3)" "2" "$val"
+
+# --- Test: unrecognized format returns -1 ---
+val=$(extract_test_count "Some random build output with no test results")
+assert_eq "extract_test_count: unrecognized format" "-1" "$val"
 
 # =============================================================================
 # check_test_count_regression tests
@@ -123,6 +144,13 @@ rm "$WORK/untracked.txt"
 echo "modified" >> "$WORK/file.txt"
 assert_exit "check_git_clean: modified file fails" 1 \
     check_git_clean "$WORK"
+
+# --- Test: -1 skips regression check ---
+assert_exit "check_test_count_regression: -1 new skips check" 0 \
+    check_test_count_regression -1 150
+
+assert_exit "check_test_count_regression: -1 previous skips check" 0 \
+    check_test_count_regression 50 -1
 
 # Clean up for any subsequent tests
 git -C "$WORK" checkout -- file.txt

@@ -118,6 +118,27 @@ else
     echo "PASS: batch 2 prompt does not leak batch 1 tasks"
 fi
 
+# =============================================================================
+# Cross-batch context tests
+# =============================================================================
+
+# --- Setup: add progress.txt and a commit to the worktree ---
+echo "Batch 1: Implemented auth module" > "$WORKTREE/progress.txt"
+echo "code" > "$WORKTREE/code.py"
+git -C "$WORKTREE" add code.py progress.txt
+git -C "$WORKTREE" commit -q -m "feat: add auth"
+
+# --- Test: prompt includes recent commits ---
+prompt3=$(build_batch_prompt "$FIXTURE" 2 "$WORKTREE" "python3" "scripts/quality-gate.sh" 42)
+assert_contains "cross-batch: has Recent commits" "Recent commits" "$prompt3"
+
+# --- Test: prompt includes progress.txt content ---
+assert_contains "cross-batch: has Previous progress" "Previous progress" "$prompt3"
+assert_contains "cross-batch: has progress content" "Implemented auth module" "$prompt3"
+
+# --- Test: prompt includes commit message ---
+assert_contains "cross-batch: has commit in log" "feat: add auth" "$prompt3"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

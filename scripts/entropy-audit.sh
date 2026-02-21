@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # entropy-audit.sh — Detect documentation drift, naming inconsistencies, and stale conventions
 #
-# Usage: entropy-audit.sh --projects-dir <dir> [--project <name>] [--all] [--fix]
+# Usage: entropy-audit.sh [--project <name>] [--all] [--fix]
 #
 # Checks:
 #   1. CLAUDE.md freshness — file references that no longer exist
@@ -14,7 +14,10 @@
 
 set -euo pipefail
 
-PROJECTS_DIR=""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
+PROJECTS_DIR="${PROJECTS_DIR:-$HOME/Documents/projects}"
 ALL_PROJECTS=false
 FIX_MODE=false
 TARGET_PROJECT=""
@@ -22,31 +25,24 @@ RESULTS_DIR="/tmp/entropy-audit-$(date +%Y%m%d-%H%M%S)"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --projects-dir) PROJECTS_DIR="$2"; shift 2 ;;
     --project) TARGET_PROJECT="$2"; shift 2 ;;
     --all) ALL_PROJECTS=true; shift ;;
     --fix) FIX_MODE=true; shift ;;
+    --projects-dir) PROJECTS_DIR="$2"; shift 2 ;;
     -h|--help)
       echo "entropy-audit.sh — Detect and report codebase entropy"
       echo ""
-      echo "Usage: entropy-audit.sh --projects-dir <dir> [--project <name>] [--all] [--fix]"
+      echo "Usage: entropy-audit.sh [--project <name>] [--all] [--fix]"
       echo ""
       echo "Options:"
-      echo "  --projects-dir <dir>  Base directory containing project subdirectories (required)"
-      echo "  --project <name>      Audit a specific project"
-      echo "  --all                 Audit all projects"
-      echo "  --fix                 Auto-fix simple issues (dead refs in CLAUDE.md)"
+      echo "  --project <name>  Audit a specific project"
+      echo "  --all             Audit all projects"
+      echo "  --fix             Auto-fix simple issues (dead refs in CLAUDE.md)"
       exit 0
       ;;
     *) echo "Unknown: $1" >&2; exit 1 ;;
   esac
 done
-
-if [[ -z "$PROJECTS_DIR" || ! -d "$PROJECTS_DIR" ]]; then
-    echo "ERROR: --projects-dir is required and must be a valid directory" >&2
-    echo "Usage: entropy-audit.sh --projects-dir <dir> [--project <name>] [--all]" >&2
-    exit 1
-fi
 
 mkdir -p "$RESULTS_DIR"
 
@@ -194,16 +190,16 @@ elif [[ "$ALL_PROJECTS" == "true" ]]; then
   for d in "$PROJECTS_DIR"/*/; do
     [[ -d "$d" ]] && audit_project "$d"
   done
-  # Also audit workspace-level CLAUDE.md if present
-  if [[ -f "$PROJECTS_DIR/../CLAUDE.md" ]]; then
-    echo ""
-    echo "Workspace CLAUDE.md audit:"
-    local_refs=$(grep -oE '`[^`]+\.(py|ts|js|sh|json|md|yaml|yml)`' "$PROJECTS_DIR/../CLAUDE.md" 2>/dev/null | tr -d '`' || true)
+  # Also audit workspace-level CLAUDE.md
+  echo ""
+  echo "Workspace CLAUDE.md audit:"
+  if [[ -f "$HOME/Documents/CLAUDE.md" ]]; then
+    local_refs=$(grep -oE '`[^`]+\.(py|ts|js|sh|json|md|yaml|yml)`' "$HOME/Documents/CLAUDE.md" 2>/dev/null | tr -d '`' || true)
     if [[ -n "$local_refs" ]]; then
       while IFS= read -r ref; do
         if echo "$ref" | grep -qE '<|>|\*|\$|~'; then continue; fi
-        if [[ ! -f "$PROJECTS_DIR/../$ref" ]] && [[ ! -f "$ref" ]]; then
-          echo "  Dead ref: $ref"
+        if [[ ! -f "$HOME/Documents/$ref" ]] && [[ ! -f "$ref" ]]; then
+          echo "  ❌ Dead ref: $ref"
         fi
       done <<< "$local_refs"
     fi

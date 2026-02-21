@@ -15,6 +15,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/ollama.sh"
 PROJECT_DIR="${1:-}"
 REPORT_FILE=""
 DRY_RUN=false
@@ -124,7 +126,10 @@ if [[ "$DRY_RUN" == "true" ]]; then
 else
   mkdir -p tasks
   # Use Claude to generate the PRD
-  claude --print "/create-prd $PRIORITY. Context from analysis: $(cat analysis.json)" > /dev/null 2>&1 || true
+  prd_output=$(claude --print "/create-prd $PRIORITY. Context from analysis: $(cat analysis.json)" 2>&1) || {
+      echo "WARNING: PRD generation failed:" >&2
+      echo "$prd_output" | tail -10 >&2
+  }
 
   if [[ ! -f "tasks/prd.json" ]]; then
     echo "Warning: PRD generation didn't create tasks/prd.json" >&2
@@ -140,26 +145,19 @@ if [[ -x "$QUALITY_GATE" ]]; then
   QUALITY_CHECKS="$QUALITY_GATE --project-root $PROJECT_DIR"
   echo "  Using composite quality gate: $QUALITY_GATE"
 else
-  # Fallback: inline detection if quality-gate.sh not available
-  QUALITY_CHECKS=""
-  if [[ -f "pyproject.toml" ]] || [[ -f "setup.py" ]] || [[ -f "pytest.ini" ]]; then
-    QUALITY_CHECKS="pytest --timeout=120 -x -q"
-  fi
-  if [[ -f "package.json" ]]; then
-    if grep -q '"test"' package.json 2>/dev/null; then
-      [[ -n "$QUALITY_CHECKS" ]] && QUALITY_CHECKS+=";";
-      QUALITY_CHECKS+="npm test"
-    fi
-    if grep -q '"lint"' package.json 2>/dev/null; then
-      [[ -n "$QUALITY_CHECKS" ]] && QUALITY_CHECKS+=";";
-      QUALITY_CHECKS+="npm run lint"
-    fi
-  fi
-  if [[ -f "Makefile" ]]; then
-    if grep -q '^test:' Makefile 2>/dev/null; then
-      [[ -z "$QUALITY_CHECKS" ]] && QUALITY_CHECKS="make test"
-    fi
-  fi
+  # Fallback: use detect_project_type if quality-gate.sh not available
+  local project_type
+  project_type=$(detect_project_type "$PROJECT_DIR")
+  case "$project_type" in
+    python)  QUALITY_CHECKS="pytest --timeout=120 -x -q" ;;
+    node)
+      QUALITY_CHECKS=""
+      grep -q '"test"' package.json 2>/dev/null && QUALITY_CHECKS+="npm test"
+      grep -q '"lint"' package.json 2>/dev/null && { [[ -n "$QUALITY_CHECKS" ]] && QUALITY_CHECKS+=";"; QUALITY_CHECKS+="npm run lint"; }
+      ;;
+    make)    QUALITY_CHECKS="make test" ;;
+    *)       QUALITY_CHECKS="" ;;
+  esac
   echo "  Fallback mode — quality-gate.sh not found"
 fi
 
