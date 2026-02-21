@@ -1,0 +1,164 @@
+# Autonomous Coding Toolkit
+
+A complete system for running AI coding agents autonomously with quality gates, fresh-context execution, and machine-verifiable completion.
+
+## How It Works
+
+This toolkit implements an **autonomous coding pipeline**: you write a plan in markdown, the system executes it batch-by-batch with a fresh AI context per batch, quality gates between batches, and machine-verifiable acceptance criteria.
+
+### The Skill Chain
+
+Skills are loaded by Claude Code and define HOW to execute each stage:
+
+```
+brainstorming → writing-plans → using-git-worktrees → [execution mode] → verification-before-completion → finishing-a-development-branch
+```
+
+| Stage | Skill | Purpose |
+|-------|-------|---------|
+| 1. Design | `brainstorming` | Explore intent → design → approval before code |
+| 2. Plan | `writing-plans` | TDD-structured tasks at 2-5 minute granularity |
+| 3. Isolate | `using-git-worktrees` | Isolated workspace with safety verification |
+| 4a. Execute (same session) | `subagent-driven-development` | Fresh subagent per task + two-stage review |
+| 4b. Execute (separate session) | `executing-plans` | Batch execution with human review checkpoints |
+| 4c. Execute (headless) | `scripts/run-plan.sh` | `claude -p` per batch, fully autonomous |
+| 4d. Execute (loop) | `plugins/ralph-loop` | Stop-hook iteration until completion promise |
+| 5. Verify | `verification-before-completion` | Evidence-based gate: run commands, read output |
+| 6. Finish | `finishing-a-development-branch` | Merge / PR / Keep / Discard + worktree cleanup |
+
+### Supporting Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `test-driven-development` | Red-Green-Refactor cycle for all implementation |
+| `systematic-debugging` | Root cause before fix, always |
+| `dispatching-parallel-agents` | 2+ independent tasks in parallel |
+| `requesting-code-review` | Dispatch reviewer subagent with template |
+| `receiving-code-review` | Technical evaluation, not performative agreement |
+| `writing-skills` | TDD applied to process documentation |
+| `using-superpowers` | Meta-skill: invoke skills before any action |
+| `verify` | Self-verification checklist before completion claims |
+
+## Directory Layout
+
+```
+skills/                          # Claude Code skills (loaded via Skill tool)
+├── brainstorming/SKILL.md
+├── writing-plans/SKILL.md
+├── executing-plans/SKILL.md
+├── using-git-worktrees/SKILL.md
+├── subagent-driven-development/
+│   ├── SKILL.md
+│   ├── implementer-prompt.md
+│   ├── spec-reviewer-prompt.md
+│   └── code-quality-reviewer-prompt.md
+├── verification-before-completion/SKILL.md
+├── finishing-a-development-branch/SKILL.md
+├── test-driven-development/SKILL.md
+├── systematic-debugging/
+│   ├── SKILL.md
+│   ├── root-cause-tracing.md
+│   ├── defense-in-depth.md
+│   └── condition-based-waiting.md
+├── dispatching-parallel-agents/SKILL.md
+├── requesting-code-review/
+│   ├── SKILL.md
+│   └── code-reviewer.md
+├── receiving-code-review/SKILL.md
+├── writing-skills/SKILL.md
+├── using-superpowers/SKILL.md
+└── verify/SKILL.md
+
+agents/                          # Agent definitions (dispatched via Task tool)
+└── lesson-scanner.md            # Scans for anti-patterns from lessons learned
+
+plugins/                         # Claude Code plugins (hooks + commands)
+└── ralph-loop/                  # Autonomous iteration via stop hook
+    ├── .claude-plugin/plugin.json
+    ├── scripts/setup-ralph-loop.sh
+    ├── hooks/stop-hook.sh
+    ├── hooks/hooks.json
+    └── commands/ralph-loop.md
+
+scripts/                         # Bash scripts for headless execution
+├── run-plan.sh                  # Main runner (3 modes: headless/team/competitive)
+├── lib/                         # run-plan.sh modules
+├── quality-gate.sh              # Composite gate: lesson-check + tests + memory
+├── lesson-check.sh              # Syntactic anti-pattern detector (<2s, grep-based)
+├── auto-compound.sh             # Full pipeline: report → PRD → execute → PR
+├── entropy-audit.sh             # Detect doc drift, naming violations
+├── batch-audit.sh               # Cross-project audit runner
+└── batch-test.sh                # Memory-aware cross-project test runner
+
+.claude/commands/                # Claude Code slash commands
+├── code-factory.md              # /code-factory — full pipeline
+├── create-prd.md                # /create-prd — machine-verifiable PRD
+└── run-plan.md                  # /run-plan — in-session batch execution
+
+docs/
+├── ARCHITECTURE.md              # Full system architecture (450 lines)
+└── lessons/
+    ├── FRAMEWORK.md             # Lesson capture methodology (Army OIL taxonomy)
+    └── TEMPLATE.md              # Template for new lessons
+
+examples/
+├── example-plan.md              # Sample implementation plan
+└── example-prd.json             # Sample PRD with shell-command criteria
+```
+
+## Installation
+
+### As a Claude Code Plugin
+
+```bash
+# Clone into your plugins directory
+git clone https://github.com/parthalon025/autonomous-coding-toolkit.git ~/.claude/plugins/autonomous-coding-toolkit
+
+# Or symlink the skills into your skills directory
+ln -s path/to/autonomous-coding-toolkit/skills/* ~/.claude/skills/
+```
+
+### As Standalone Scripts
+
+```bash
+# Clone anywhere
+git clone https://github.com/parthalon025/autonomous-coding-toolkit.git
+
+# Run headless execution directly
+./autonomous-coding-toolkit/scripts/run-plan.sh your-plan.md
+```
+
+## Quality Gates
+
+Quality gates are mandatory between every batch. The default gate runs:
+
+1. **Lesson check** — syntactic anti-pattern scan (grep-based, <2s)
+2. **Test suite** — auto-detected (pytest / npm test / make test)
+3. **Memory check** — warn if < 4GB available
+
+Additionally enforced:
+- **Test count regression** — tests only go up between batches
+- **Git clean** — all changes committed before next batch
+
+## State & Persistence
+
+Three mechanisms prevent data loss across context resets:
+
+- **`.run-plan-state.json`** — execution state (completed batches, test counts). Enables `--resume`.
+- **`progress.txt`** — append-only discovery log. Read at start of each batch for cross-context memory.
+- **`tasks/prd.json`** — machine-verifiable acceptance criteria. Every criterion is a shell command (exit 0 = pass).
+
+## Design Principles
+
+1. **Fresh context per unit of work** — context degradation is the #1 quality killer
+2. **Machine-verifiable gates** — every gate is a command that exits 0 or non-zero
+3. **Test count monotonicity** — tests only go up
+4. **State survives interruption** — every state transition persisted to disk
+5. **Lessons compound** — every bug becomes an automated check over time
+
+## Conventions
+
+- Plans go in `docs/plans/` with format `YYYY-MM-DD-description.md`
+- Skills are rigid — follow exactly, don't adapt away discipline
+- Brainstorming is mandatory before any new feature — no exceptions
+- No completion claims without fresh verification evidence
