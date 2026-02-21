@@ -165,6 +165,27 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# === ast-grep section present in full mode (advisory, doesn't fail gate) ===
+
+output=$(bash "$QG" --project-root "$WORK/py-proj" 2>&1) || true
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qiE "structural|ast-grep"; then
+    echo "PASS: ast-grep section present in full mode"
+else
+    echo "FAIL: ast-grep section should be present in full mode"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# ast-grep section should be skipped in --quick mode
+output=$(bash "$QG" --project-root "$WORK/py-proj" --quick 2>&1) || true
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qF "Structural Analysis"; then
+    echo "FAIL: --quick should skip ast-grep structural analysis"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: --quick skips ast-grep structural analysis"
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

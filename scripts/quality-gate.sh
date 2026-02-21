@@ -126,6 +126,34 @@ if [[ "$QUICK" != true ]]; then
     fi
 fi
 
+# === Check 2.5: ast-grep structural analysis (optional, advisory) ===
+if [[ "$QUICK" != true ]]; then
+    echo ""
+    echo "=== Quality Gate: Structural Analysis (ast-grep) ==="
+    if command -v ast-grep >/dev/null 2>&1; then
+        PATTERNS_DIR="$SCRIPT_DIR/patterns"
+        ast_violations=0
+        if [[ -d "$PATTERNS_DIR" ]]; then
+            for pattern_file in "$PATTERNS_DIR"/*.yml; do
+                [[ -f "$pattern_file" ]] || continue
+                matches=$(ast-grep scan --rule "$pattern_file" "$PROJECT_ROOT" 2>/dev/null || true)
+                if [[ -n "$matches" ]]; then
+                    echo "WARNING: $(basename "$pattern_file" .yml): $(echo "$matches" | wc -l) matches"
+                    echo "$matches" | head -3
+                    ast_violations=$((ast_violations + 1))
+                fi
+            done
+        fi
+        if [[ $ast_violations -gt 0 ]]; then
+            echo "ast-grep: $ast_violations pattern(s) matched (advisory)"
+        else
+            echo "ast-grep: clean"
+        fi
+    else
+        echo "ast-grep not installed — skipping structural analysis"
+    fi
+fi
+
 # === Check 3: Project test suite (auto-detect) ===
 echo ""
 echo "=== Quality Gate: Test Suite ==="
