@@ -56,4 +56,25 @@ These are informational — shellcheck can't follow relative `source` paths with
 
 ## Lesson Scanner Results
 
-*(Appended in Task 2)*
+### lesson-check.sh against shell scripts
+
+```
+Target: scripts/*.sh, scripts/lib/*.sh, hooks/stop-hook.sh (15 files)
+Result: lesson-check: clean
+Exit code: 0
+```
+
+All shell scripts pass — expected since lessons target Python/JS patterns.
+
+### lesson-check.sh against Python/JS/TS files
+
+```
+Target: find . -name "*.py" -o -name "*.js" -o -name "*.ts"
+Result: No matching files found
+```
+
+This is a pure bash toolkit — no Python/JS/TS source files exist. Lesson scanner has no applicable targets.
+
+### Conclusion
+
+No lesson violations found. The toolkit's bash-only codebase is not covered by the current syntactic lesson set (which targets Python/JS). Future work: add bash-specific lessons (e.g., unquoted variables, missing `set -euo pipefail`).
