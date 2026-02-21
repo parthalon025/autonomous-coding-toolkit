@@ -90,7 +90,7 @@ hooks/                           # Claude Code event hooks
 
 scripts/                         # Bash scripts for headless execution
 ├── run-plan.sh                  # Main runner (3 modes: headless/team/competitive)
-├── lib/                         # run-plan.sh modules
+├── lib/                         # run-plan.sh modules (parser, state, prompt, context, routing, scoring)
 ├── setup-ralph-loop.sh          # Ralph loop state file initialization
 ├── quality-gate.sh              # Composite gate: lesson-check + tests + memory
 ├── lesson-check.sh              # Dynamic anti-pattern detector (reads lesson files)
@@ -157,6 +157,10 @@ Additionally enforced:
 - **Test count regression** — tests only go up between batches
 - **Git clean** — all changes committed before next batch
 
+Advanced options:
+- **`--sample N`** — parallel patch sampling: on retry, spawns N candidates with different prompt variants (vanilla, different-approach, minimal-change), scores them, and picks the winner
+- **Per-batch context injection** — assembles targeted context (failure patterns, prior batch summaries, referenced files) within a 6000-char budget and injects into CLAUDE.md before each batch
+
 ## Community Lessons
 
 The lesson system is dynamic — adding a lesson file automatically adds a check. No code changes needed.
@@ -173,6 +177,9 @@ Three mechanisms prevent data loss across context resets:
 - **`.run-plan-state.json`** — execution state (completed batches, test counts). Enables `--resume`.
 - **`progress.txt`** — append-only discovery log. Read at start of each batch for cross-context memory.
 - **`tasks/prd.json`** — machine-verifiable acceptance criteria. Every criterion is a shell command (exit 0 = pass).
+- **`logs/failure-patterns.json`** — cross-run failure learning (failure types, frequencies, winning fixes per batch title).
+- **`logs/routing-decisions.log`** — execution traceability (mode selection, model routing, parallelism scores).
+- **`logs/sampling-outcomes.json`** — prompt variant learning (which sampling strategy won per batch type).
 
 ## Design Principles
 
