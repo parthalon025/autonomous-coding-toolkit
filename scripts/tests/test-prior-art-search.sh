@@ -76,6 +76,16 @@ assert_exit "prior-art-search --github-only --dry-run exits 0" 0 \
 assert_exit "prior-art-search: unknown option exits 1" 1 \
     bash "$SEARCH_SCRIPT" --bogus-flag
 
+# --- Test: dry-run includes ast-grep section ---
+output=$(bash "$SEARCH_SCRIPT" --dry-run "error handling patterns" 2>&1)
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qi "ast-grep\|structural"; then
+    echo "PASS: prior-art: dry-run mentions ast-grep/structural search"
+else
+    echo "FAIL: prior-art: dry-run should mention ast-grep/structural search"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

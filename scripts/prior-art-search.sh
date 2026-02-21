@@ -65,6 +65,11 @@ if [[ "$DRY_RUN" == true ]]; then
     [[ "$LOCAL_ONLY" != true ]] && echo "  - GitHub repos: gh search repos '$QUERY' --limit $MAX_RESULTS"
     [[ "$LOCAL_ONLY" != true ]] && echo "  - GitHub code: gh search code '$QUERY' --limit $MAX_RESULTS"
     [[ "$GITHUB_ONLY" != true ]] && echo "  - Local projects: grep -rl in $PROJECTS_DIR"
+    if command -v ast-grep >/dev/null 2>&1; then
+        echo "  - Structural code search (ast-grep): scan with built-in patterns"
+    else
+        echo "  - Structural code search (ast-grep): not installed — would skip"
+    fi
     exit 0
 fi
 
@@ -100,6 +105,28 @@ if [[ "$GITHUB_ONLY" != true ]]; then
     else
         echo "  Projects directory not found: $PROJECTS_DIR"
     fi
+    echo ""
+fi
+
+# Search 3: Structural code search (ast-grep)
+if command -v ast-grep >/dev/null 2>&1; then
+    echo "--- Structural Code Search (ast-grep) ---"
+    PATTERNS_DIR="$SCRIPT_DIR/patterns"
+    if [[ -d "$PATTERNS_DIR" ]]; then
+        for pattern_file in "$PATTERNS_DIR"/*.yml; do
+            [[ -f "$pattern_file" ]] || continue
+            pattern_name=$(basename "$pattern_file" .yml)
+            matches=$(ast-grep scan --rule "$pattern_file" . 2>/dev/null | head -5 || true)
+            if [[ -n "$matches" ]]; then
+                echo "  Pattern '$pattern_name': $(echo "$matches" | wc -l) matches"
+            fi
+        done
+    fi
+    echo ""
+else
+    echo "--- Structural Code Search ---"
+    echo "  ast-grep not installed — skipping structural analysis"
+    echo "  Install: npm i -g @ast-grep/cli"
     echo ""
 fi
 
