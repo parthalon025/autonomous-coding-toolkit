@@ -107,6 +107,50 @@ assert_contains "lint check section present" "Lint Check" "$output"
 output=$(bash "$QG" --project-root "$WORK/node-proj" 2>&1) || true
 assert_contains "node lint skipped without config" "No eslint config found" "$output"
 
+# === --quick flag skips lint ===
+
+output=$(bash "$QG" --project-root "$WORK/py-proj" --quick 2>&1) || true
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qF "Lint Check"; then
+    echo "FAIL: --quick skips lint check"
+    echo "  Lint Check header should not appear with --quick"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: --quick skips lint check"
+fi
+assert_contains "--quick still runs tests" "Test Suite" "$output"
+assert_contains "--quick still runs memory" "Memory Check" "$output"
+
+# === --with-license flag adds license check ===
+
+output=$(bash "$QG" --project-root "$WORK/py-proj" --with-license 2>&1) || true
+assert_contains "--with-license runs license check" "License Check" "$output"
+
+# === without --with-license, no license check ===
+
+output=$(bash "$QG" --project-root "$WORK/py-proj" 2>&1) || true
+TESTS=$((TESTS + 1))
+# License Check should NOT appear in the quality-gate section headers
+# (it may appear in lesson check output, so check for the specific gate header)
+if echo "$output" | grep -qF "Quality Gate: License Check"; then
+    echo "FAIL: no license check without --with-license"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: no license check without --with-license"
+fi
+
+# === --quick and --with-license combined ===
+
+output=$(bash "$QG" --project-root "$WORK/py-proj" --quick --with-license 2>&1) || true
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qF "Lint Check"; then
+    echo "FAIL: --quick --with-license skips lint"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: --quick --with-license skips lint"
+fi
+assert_contains "--quick --with-license keeps license" "License Check" "$output"
+
 # === Memory check output ===
 
 output=$(bash "$QG" --project-root "$WORK/py-proj" 2>&1) || true
