@@ -22,75 +22,54 @@ parse_lesson() {
     pattern_regex=""
     lesson_languages=""
 
-    # Use awk to extract YAML frontmatter fields.
-    # Frontmatter is between the first two --- delimiters.
-    # Nested pattern: block is handled by tracking a flag when we see "^pattern:".
-    eval "$(awk '
-        BEGIN {
-            in_fm=0; past_first=0; in_pattern=0;
-            id=""; title=""; severity=""; ptype=""; pregex=""; langs="";
-        }
-        /^---$/ {
-            if (!past_first) { in_fm=1; past_first=1; next }
-            else if (in_fm) { in_fm=0; exit }
-        }
-        !in_fm { next }
+    # Parse YAML frontmatter with sed + read (no eval — safe with special chars).
+    # Extract text between first two --- delimiters, then parse key: value lines.
+    local in_pattern=false
+    local line
+    while IFS= read -r line; do
+        # Detect entry/exit of pattern: block
+        if [[ "$line" =~ ^pattern: ]]; then
+            in_pattern=true
+            continue
+        fi
+        if [[ "$in_pattern" == true && "$line" =~ ^[^[:space:]] && ! "$line" =~ ^pattern: ]]; then
+            in_pattern=false
+        fi
 
-        # Detect entry into the pattern: block
-        /^pattern:/ { in_pattern=1; next }
-
-        # If we hit a top-level key (no leading whitespace, ends with :), exit pattern block
-        in_pattern && /^[^[:space:]]/ && !/^pattern:/ { in_pattern=0 }
-
-        # Top-level fields
-        !in_pattern && /^id:[[:space:]]+/ {
-            sub(/^id:[[:space:]]+/, ""); id=$0
-        }
-        !in_pattern && /^title:[[:space:]]+/ {
-            sub(/^title:[[:space:]]+/, "")
-            # Strip surrounding quotes
-            gsub(/^["'"'"']|["'"'"']$/, "")
-            title=$0
-        }
-        !in_pattern && /^severity:[[:space:]]+/ {
-            sub(/^severity:[[:space:]]+/, ""); severity=$0
-        }
-        !in_pattern && /^languages:[[:space:]]+/ {
-            sub(/^languages:[[:space:]]+/, "")
-            # Strip [ ] and split on ", " or ","
-            gsub(/[\[\]]/, "")
-            gsub(/,[ \t]*/, " ")
-            gsub(/^[ \t]+|[ \t]+$/, "")
-            langs=$0
-        }
-
-        # Nested pattern: fields (indented with spaces or tabs)
-        in_pattern && /^[[:space:]]+type:[[:space:]]+/ {
-            sub(/^[[:space:]]+type:[[:space:]]+/, ""); ptype=$0
-        }
-        in_pattern && /^[[:space:]]+regex:[[:space:]]+/ {
-            sub(/^[[:space:]]+regex:[[:space:]]+/, "")
-            gsub(/^["'"'"']|["'"'"']$/, "")
-            pregex=$0
-        }
-
-        END {
-            # Shell-escape single quotes in values before wrapping
-            gsub(/'/, "'"'"'\\'"'"'\\'"'"'\\'"'"''"'"'", title)
-            gsub(/'/, "'"'"'\\'"'"'\\'"'"'\\'"'"''"'"'", pregex)
-            gsub(/'/, "'"'"'\\'"'"'\\'"'"'\\'"'"''"'"'", langs)
-            printf "lesson_id=%s\n",      id
-            printf "lesson_title='"'"'%s'"'"'\n", title
-            printf "lesson_severity=%s\n", severity
-            printf "pattern_type=%s\n",    ptype
-            printf "lesson_languages='"'"'%s'"'"'\n", langs
-            printf "pattern_regex='"'"'%s'"'"'\n",    pregex
-        }
-    ' "$file" 2>/dev/null)"
+        if [[ "$in_pattern" == false ]]; then
+            # Top-level fields
+            if [[ "$line" =~ ^id:[[:space:]]+(.*) ]]; then
+                lesson_id="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^title:[[:space:]]+(.*) ]]; then
+                lesson_title="${BASH_REMATCH[1]}"
+                lesson_title="${lesson_title#\"}"
+                lesson_title="${lesson_title%\"}"
+                lesson_title="${lesson_title#\'}"
+                lesson_title="${lesson_title%\'}"
+            elif [[ "$line" =~ ^severity:[[:space:]]+(.*) ]]; then
+                lesson_severity="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^languages:[[:space:]]+(.*) ]]; then
+                lesson_languages="${BASH_REMATCH[1]}"
+                lesson_languages="${lesson_languages//[\[\]]/}"
+                lesson_languages="${lesson_languages//,/ }"
+                lesson_languages="${lesson_languages## }"
+                lesson_languages="${lesson_languages%% }"
+            fi
+        else
+            # Nested pattern: fields (indented)
+            if [[ "$line" =~ ^[[:space:]]+type:[[:space:]]+(.*) ]]; then
+                pattern_type="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^[[:space:]]+regex:[[:space:]]+(.*) ]]; then
+                pattern_regex="${BASH_REMATCH[1]}"
+                pattern_regex="${pattern_regex#\"}"
+                pattern_regex="${pattern_regex%\"}"
+                pattern_regex="${pattern_regex#\'}"
+                pattern_regex="${pattern_regex%\'}"
+            fi
+        fi
+    done < <(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$file" 2>/dev/null)
 
     # Unescape YAML double-escaped backslashes: \\s → \s, \\d → \d, etc.
-    # In YAML a regex stored as "\\s" has a literal backslash-backslash in the file,
-    # which awk reads as two chars. We need to collapse each \\ → \.
     pattern_regex="${pattern_regex//\\\\/\\}"
 
     [[ -z "$pattern_type" || "$pattern_type" != "syntactic" ]] && return 1
