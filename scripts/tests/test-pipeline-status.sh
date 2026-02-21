@@ -76,6 +76,25 @@ echo '[{"id":1,"passes":true},{"id":2,"passes":false},{"id":3,"passes":true}]' >
 output=$(bash "$STATUS_SCRIPT" "$WORK/proj-with-state" 2>&1) || true
 assert_contains "shows PRD counts" "2/3 passing" "$output"
 
+# --- Test: shows routing decisions when log exists ---
+mkdir -p "$WORK/proj-with-state/logs"
+echo "[14:30:01] MODE: headless mode selected" > "$WORK/proj-with-state/logs/routing-decisions.log"
+echo "[14:30:02] MODEL: batch 1 routed to sonnet" >> "$WORK/proj-with-state/logs/routing-decisions.log"
+output=$(bash "$STATUS_SCRIPT" "$WORK/proj-with-state" 2>&1) || true
+assert_contains "shows routing decisions header" "Routing Decisions" "$output"
+assert_contains "shows routing log content" "headless mode selected" "$output"
+
+# --- Test: no routing section when log missing ---
+rm -f "$WORK/proj-with-state/logs/routing-decisions.log"
+output=$(bash "$STATUS_SCRIPT" "$WORK/proj-with-state" 2>&1) || true
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qF "Routing Decisions"; then
+    echo "FAIL: no routing section when log missing"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: no routing section when log missing"
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

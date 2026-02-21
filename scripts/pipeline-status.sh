@@ -67,6 +67,13 @@ if [[ -f "$PROJECT_ROOT/progress.txt" ]]; then
     echo ""
 fi
 
+# Routing decisions
+if [[ -f "$PROJECT_ROOT/logs/routing-decisions.log" ]]; then
+    echo "--- Routing Decisions ---"
+    tail -20 "$PROJECT_ROOT/logs/routing-decisions.log" | sed 's/^/  /'
+    echo ""
+fi
+
 # Git status
 echo "--- Git ---"
 branch=$(git -C "$PROJECT_ROOT" branch --show-current 2>/dev/null || echo "unknown")
