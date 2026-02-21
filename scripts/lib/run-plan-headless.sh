@@ -42,6 +42,13 @@ run_mode_headless() {
         echo "  Batch $batch: $title"
         echo "================================================================"
 
+        local batch_text
+        batch_text=$(get_batch_text "$PLAN_FILE" "$batch")
+        if [[ -z "$batch_text" ]]; then
+            echo "  (empty batch -- skipping)"
+            continue
+        fi
+
         local prev_test_count
         prev_test_count=$(get_previous_test_count "$WORKTREE")
 

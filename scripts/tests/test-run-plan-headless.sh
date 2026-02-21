@@ -93,6 +93,36 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# === Empty batch detection ===
+# The parser should return empty text for empty batches, and headless mode should skip them.
+# This test verifies the parser side (headless mode integration is tested separately).
+
+WORK=$(mktemp -d)
+trap "rm -rf '$WORK'" EXIT
+
+source "$SCRIPT_DIR/../lib/run-plan-parser.sh"
+
+# Create a plan with 2 real batches and 1 empty trailing match
+cat > "$WORK/plan-empty.md" << 'PLAN'
+## Batch 1: Real Batch
+### Task 1: Do something
+Write some code.
+
+## Batch 2: Also Real
+### Task 2: Do more
+Write more code.
+
+## Batch 3:
+PLAN
+
+# get_batch_text should return empty for batch 3
+val=$(get_batch_text "$WORK/plan-empty.md" 3)
+assert_eq "get_batch_text: empty batch returns empty" "" "$val"
+
+# count_batches should count all 3 (parser counts headers)
+val=$(count_batches "$WORK/plan-empty.md")
+assert_eq "count_batches: counts all headers including empty" "3" "$val"
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
