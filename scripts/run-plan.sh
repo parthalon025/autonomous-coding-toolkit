@@ -22,6 +22,7 @@ source "$SCRIPT_DIR/lib/run-plan-prompt.sh"
 source "$SCRIPT_DIR/lib/run-plan-headless.sh"
 source "$SCRIPT_DIR/lib/run-plan-context.sh"
 source "$SCRIPT_DIR/lib/run-plan-scoring.sh"
+source "$SCRIPT_DIR/lib/run-plan-team.sh"
 
 # --- Defaults ---
 PLAN_FILE=""
@@ -237,14 +238,7 @@ print_banner() {
 BANNER
 }
 
-# --- Mode A/B stubs ---
-run_mode_team() {
-    echo "Team mode requires a Claude session with agent teams enabled."
-    echo ""
-    echo "Launch command:"
-    echo "  CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude -p \"/run-plan $PLAN_FILE --mode team --start-batch $START_BATCH --end-batch $END_BATCH --worktree $WORKTREE\" --allowedTools '*' --permission-mode bypassPermissions"
-}
-
+# --- Mode stubs ---
 run_mode_competitive() {
     echo "Competitive mode requires a Claude session with agent teams enabled."
     echo ""
