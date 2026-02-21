@@ -125,3 +125,62 @@ Tested all 4 syntactic lesson regex patterns with `grep -P`:
 - Semantic lessons (0002, 0003) correctly omit `regex` field
 - ID sequence is contiguous (1-6) with no gaps
 - No issues found — lesson schema is clean
+
+---
+
+## Manifest & Frontmatter Validation (Batch 2)
+
+### JSON Manifest Validation
+
+| File | Valid JSON | Required Fields | Status |
+|------|-----------|----------------|--------|
+| `.claude-plugin/plugin.json` | ✓ | name, description, version, author | PASS |
+| `.claude-plugin/marketplace.json` | ✓ | N/A (list format) | PASS |
+| `hooks/hooks.json` | ✓ | N/A (event-keyed) | PASS |
+
+**3/3 JSON files pass validation.**
+
+### Skill Frontmatter Validation
+
+Checked all 15 skills for required fields: `name`, `description`, `version`.
+
+| Skill | name | description | version | Status |
+|-------|------|-------------|---------|--------|
+| `brainstorming` | ✓ | ✓ | 1.0.0 | PASS |
+| `dispatching-parallel-agents` | ✓ | ✓ | 1.0.0 | PASS |
+| `executing-plans` | ✓ | ✓ | 1.0.0 | PASS |
+| `finishing-a-development-branch` | ✓ | ✓ | 1.0.0 | PASS |
+| `receiving-code-review` | ✓ | ✓ | 1.0.0 | PASS |
+| `requesting-code-review` | ✓ | ✓ | 1.0.0 | PASS |
+| `subagent-driven-development` | ✓ | ✓ | 1.0.0 | PASS |
+| `systematic-debugging` | ✓ | ✓ | 1.0.0 | PASS |
+| `test-driven-development` | ✓ | ✓ | 1.0.0 | PASS |
+| `using-git-worktrees` | ✓ | ✓ | 1.0.0 | PASS |
+| `using-superpowers` | ✓ | ✓ | 1.0.0 | PASS |
+| `verification-before-completion` | ✓ | ✓ | 1.0.0 | PASS |
+| `verify` | ✓ | ✓ | 1.0.0 | PASS |
+| `writing-plans` | ✓ | ✓ | 1.0.0 | PASS |
+| `writing-skills` | ✓ | ✓ | 1.0.0 | PASS |
+
+**15/15 skills pass frontmatter validation.**
+
+### Command Frontmatter Validation
+
+Checked all 6 commands for YAML frontmatter with `description` field (command name derives from filename).
+
+| Command | Frontmatter | description | Status |
+|---------|-------------|-------------|--------|
+| `cancel-ralph.md` | ✓ | ✓ | PASS |
+| `code-factory.md` | ✓ | ✓ | PASS |
+| `create-prd.md` | ✓ | ✓ | PASS |
+| `ralph-loop.md` | ✓ | ✓ | PASS |
+| `run-plan.md` | ✓ | ✓ | PASS |
+| `submit-lesson.md` | ✓ | ✓ | PASS |
+
+**6/6 commands pass frontmatter validation.**
+
+### Observations
+
+- All skills at version 1.0.0 — consistent versioning
+- Command files use `description` (not `name`) in frontmatter — name comes from filename per Claude Code convention
+- No missing or malformed frontmatter found across any file type
