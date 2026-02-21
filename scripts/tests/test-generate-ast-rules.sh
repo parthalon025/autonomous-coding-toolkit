@@ -32,7 +32,7 @@ assert_contains() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # Create test lesson files
 mkdir -p "$WORK/lessons"

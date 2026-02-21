@@ -38,7 +38,7 @@ assert_contains() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # --- Test: --help exits 0 ---
 assert_exit "pipeline-status --help exits 0" 0 \

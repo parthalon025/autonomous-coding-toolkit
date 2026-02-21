@@ -15,6 +15,7 @@
 # --- Configuration ---
 PARALLELISM_THRESHOLD_TEAM=40    # Score above this recommends team mode
 MIN_MEMORY_TEAM_GB=8             # Minimum memory for team mode
+# shellcheck disable=SC2034  # MIN_BATCHES_TEAM reserved for future use
 MIN_BATCHES_TEAM=3               # Need at least 3 batches to justify team mode
 
 # --- Extract files touched by a batch ---

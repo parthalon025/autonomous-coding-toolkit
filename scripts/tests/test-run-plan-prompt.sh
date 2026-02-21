@@ -24,7 +24,7 @@ assert_contains() {
 
 # --- Setup: fixture plan + temp git worktree ---
 TMPDIR_ROOT=$(mktemp -d)
-trap "rm -rf '$TMPDIR_ROOT'" EXIT
+trap 'rm -rf "$TMPDIR_ROOT"' EXIT
 
 FIXTURE="$TMPDIR_ROOT/plan.md"
 cat > "$FIXTURE" << 'EOF'

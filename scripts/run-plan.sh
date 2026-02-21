@@ -83,6 +83,7 @@ USAGE
 }
 
 # --- Argument parsing ---
+# shellcheck disable=SC2034  # Globals consumed by sourced lib scripts
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in

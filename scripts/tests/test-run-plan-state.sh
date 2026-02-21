@@ -23,7 +23,7 @@ assert_eq() {
 
 # --- Temp dir for worktree simulation ---
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # --- Test: init_state creates the file ---
 init_state "$WORK" "docs/plans/2026-02-20-feature.md" "headless"
@@ -100,7 +100,7 @@ assert_eq "previous test count after batch 2" "55" "$val"
 
 # --- Test: get_previous_test_count with no completions ---
 WORK2=$(mktemp -d)
-trap "rm -rf '$WORK' '$WORK2'" EXIT
+trap 'rm -rf "$WORK" "$WORK2"' EXIT
 init_state "$WORK2" "plan.md" "team"
 
 val=$(get_previous_test_count "$WORK2")
@@ -139,7 +139,7 @@ assert_eq "failed quality gate passed" "false" "$val"
 
 # --- Test: complete_batch stores duration ---
 WORK3=$(mktemp -d)
-trap "rm -rf '$WORK' '$WORK2' '$WORK3'" EXIT
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3"' EXIT
 init_state "$WORK3" "plan.md" "headless"
 complete_batch "$WORK3" 1 42 120
 

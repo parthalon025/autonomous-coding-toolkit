@@ -39,7 +39,7 @@ assert_exit() {
 
 # --- Temp dir for git repo simulation ---
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # =============================================================================
 # extract_test_count tests

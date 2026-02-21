@@ -38,7 +38,7 @@ assert_exit() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # === _load_telegram_env tests ===
 

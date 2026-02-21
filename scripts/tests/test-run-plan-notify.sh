@@ -100,7 +100,7 @@ assert_contains "failure includes action" "Fix test_auth.py" "$msg"
 
 # --- Test: _load_telegram_env warns on missing file ---
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 msg=$(_load_telegram_env "$WORK/.env-nonexistent" 2>&1 || true)
 assert_contains "warns on missing env file" "warn" "$(echo "$msg" | tr '[:upper:]' '[:lower:]')"

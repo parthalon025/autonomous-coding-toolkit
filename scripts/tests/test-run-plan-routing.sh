@@ -22,7 +22,7 @@ assert_eq() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # Plan with clear parallel batches
 cat > "$WORK/parallel-plan.md" << 'PLAN'

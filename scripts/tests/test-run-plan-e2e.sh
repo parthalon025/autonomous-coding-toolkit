@@ -12,7 +12,7 @@ TESTS=0
 # --- Setup temp workspace ---
 WORK=$(mktemp -d)
 FIXTURES=$(mktemp -d)
-trap "rm -rf '$WORK' '$FIXTURES'" EXIT
+trap 'rm -rf "$WORK" "$FIXTURES"' EXIT
 
 # 1. Git init the worktree
 git -C "$WORK" init -q

@@ -22,7 +22,7 @@ assert_eq() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # Create a fake log with errors
 cat > "$WORK/batch-1-attempt-1.log" << 'LOG'

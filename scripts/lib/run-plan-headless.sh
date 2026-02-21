@@ -108,10 +108,10 @@ run_mode_headless() {
                     (cd "$WORKTREE" && git checkout . 2>/dev/null && git stash pop -q 2>/dev/null || true)
                     (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
 
-                    CLAUDECODE= claude -p "${prompt}${variant_suffix}" \
+                    CLAUDECODE='' claude -p "${prompt}${variant_suffix}" \
                         --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
                         --permission-mode bypassPermissions \
-                        2>&1 > "$candidate_log" || true
+                        > "$candidate_log" 2>&1 || true
 
                     # Score this candidate
                     local gate_exit=0
@@ -198,7 +198,7 @@ Focus on fixing the root cause. Check test output carefully."
 
             # Run claude headless (unset CLAUDECODE to allow nested invocation)
             local claude_exit=0
-            CLAUDECODE= claude -p "$full_prompt" \
+            CLAUDECODE='' claude -p "$full_prompt" \
                 --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
                 --permission-mode bypassPermissions \
                 2>&1 | tee "$log_file" || claude_exit=$?

@@ -85,7 +85,7 @@ check_git_clean() {
 # Requires run-plan-state.sh functions: get_previous_test_count, complete_batch, set_quality_gate
 run_quality_gate() {
     local worktree="$1" quality_gate_cmd="$2" batch_num="$3" duration="${4:-0}"
-    local gate_output gate_exit test_count previous_count passed
+    local gate_output gate_exit test_count previous_count
 
     echo "=== Quality Gate: Batch $batch_num ==="
 

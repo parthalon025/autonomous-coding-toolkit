@@ -36,7 +36,7 @@ assert_contains() {
 
 # --- Create test fixture ---
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 FIXTURE="$WORK/fixture.md"
 cat > "$FIXTURE" << 'EOF'
 # Feature X Implementation Plan

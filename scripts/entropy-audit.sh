@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034  # FIX_MODE parsed but reserved for future auto-fix mode
 # entropy-audit.sh — Detect documentation drift, naming inconsistencies, and stale conventions
 #
 # Usage: entropy-audit.sh [--project <name>] [--all] [--fix]
@@ -19,7 +20,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 PROJECTS_DIR="${PROJECTS_DIR:-$HOME/Documents/projects}"
 ALL_PROJECTS=false
-FIX_MODE=false
+FIX_MODE=false  # reserved for auto-fix mode
 TARGET_PROJECT=""
 RESULTS_DIR="/tmp/entropy-audit-$(date +%Y%m%d-%H%M%S)"
 

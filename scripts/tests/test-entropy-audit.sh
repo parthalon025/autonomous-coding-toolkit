@@ -50,7 +50,7 @@ assert_contains() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # === Sources common.sh ===
 

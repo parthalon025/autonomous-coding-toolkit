@@ -93,7 +93,7 @@ assert_exit "nonexistent file exits 1" 1 bash "$AR" /nonexistent/report.md
 # === Dry run works ===
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 echo "# Test report" > "$WORK/report.md"
 output=$(bash "$AR" "$WORK/report.md" --dry-run 2>&1) || true
 TESTS=$((TESTS + 1))

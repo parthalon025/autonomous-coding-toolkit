@@ -130,10 +130,6 @@ run_mode_team() {
             batch_logs+=("$log_file")
             batch_list+=("$batch")
 
-            # Generate per-batch context
-            local batch_context
-            batch_context=$(generate_batch_context "$PLAN_FILE" "$batch" "$WORKTREE" 2>/dev/null || true)
-
             local prev_test_count
             prev_test_count=$(get_previous_test_count "$WORKTREE")
 
@@ -143,11 +139,11 @@ run_mode_team() {
             log_routing_decision "$WORKTREE" "PARALLEL" "batch $batch ($title) [$model] in group $((g+1))"
 
             echo "  Starting batch $batch: $title ($model)..."
-            CLAUDECODE= claude -p "$prompt" \
+            CLAUDECODE='' claude -p "$prompt" \
                 --model "$model" \
                 --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
                 --permission-mode bypassPermissions \
-                2>&1 > "$log_file" &
+                > "$log_file" 2>&1 &
             pids+=($!)
         done
 

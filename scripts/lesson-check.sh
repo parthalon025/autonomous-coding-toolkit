@@ -9,6 +9,7 @@ LESSONS_DIR="$SCRIPT_DIR/../docs/lessons"
 
 # ---------------------------------------------------------------------------
 # parse_lesson <file>
+# shellcheck disable=SC2034  # lesson_severity parsed for future severity filtering
 # Sets: lesson_id, lesson_title, lesson_severity, pattern_type, pattern_regex,
 #       lesson_languages (space-separated list)
 # Returns 1 if the lesson cannot be parsed or has no syntactic pattern.

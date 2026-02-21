@@ -23,7 +23,7 @@ assert_eq() {
 }
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 # Plan with parallel structure: batch 1 is foundation, 2+3 are parallel, 4 depends on both
 cat > "$WORK/parallel-plan.md" << 'PLAN'

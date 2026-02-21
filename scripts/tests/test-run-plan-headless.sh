@@ -98,7 +98,7 @@ fi
 # This test verifies the parser side (headless mode integration is tested separately).
 
 WORK=$(mktemp -d)
-trap "rm -rf '$WORK'" EXIT
+trap 'rm -rf "$WORK"' EXIT
 
 source "$SCRIPT_DIR/../lib/run-plan-parser.sh"
 

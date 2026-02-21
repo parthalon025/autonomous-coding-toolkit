@@ -71,7 +71,7 @@ assert_output_contains "help mentions --on-failure" "--on-failure" "$RUN_PLAN" -
 
 # --- Test: --resume without state file exits 1 ---
 TMPDIR_RESUME=$(mktemp -d)
-trap "rm -rf '$TMPDIR_RESUME'" EXIT
+trap 'rm -rf "$TMPDIR_RESUME"' EXIT
 assert_exit "--resume without state file exits 1" 1 "$RUN_PLAN" --resume --worktree "$TMPDIR_RESUME"
 
 echo ""
