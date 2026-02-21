@@ -1,6 +1,7 @@
 ---
 name: writing-plans
 description: Use when you have a spec or requirements for a multi-step task, before touching code
+version: 1.0.0
 ---
 
 # Writing Plans
@@ -98,11 +99,13 @@ git commit -m "feat: add specific feature"
 
 After saving the plan, offer execution choice:
 
-**"Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:**
+**"Plan complete and saved to `docs/plans/<filename>.md`. Three execution options:**
 
-**1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
+**1. Subagent-Driven (this session)** - I dispatch fresh subagent per task with two-stage review, fast iteration, you watch progress
 
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
+**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with human review checkpoints
+
+**3. Headless (walk away)** - Run `scripts/run-plan.sh` in the background. Fresh `claude -p` per batch, quality gates between batches, resume on interruption. Best for 5+ batch plans.
 
 **Which approach?"**
 
@@ -114,3 +117,12 @@ After saving the plan, offer execution choice:
 **If Parallel Session chosen:**
 - Guide them to open new session in worktree
 - **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
+
+**If Headless chosen:**
+- Generate the run command with appropriate flags:
+  ```bash
+  scripts/run-plan.sh docs/plans/<plan-file>.md --quality-gate "scripts/quality-gate.sh --project-root ."
+  ```
+- If the plan has critical batches, suggest `--mode competitive --competitive-batches N,M`
+- For long plans (10+ batches), suggest `--on-failure retry --max-retries 3`
+- Remind them: `--resume` picks up where it left off after interruption

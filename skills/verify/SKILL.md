@@ -2,6 +2,7 @@
 name: verify
 description: Self-verification checklist — run before declaring work complete, committing, or creating PRs
 disable-model-invocation: true
+version: 1.0.0
 ---
 
 ## Dependencies

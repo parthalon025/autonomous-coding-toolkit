@@ -22,7 +22,7 @@ brainstorming → writing-plans → using-git-worktrees → [execution mode] →
 | 4a. Execute (same session) | `subagent-driven-development` | Fresh subagent per task + two-stage review |
 | 4b. Execute (separate session) | `executing-plans` | Batch execution with human review checkpoints |
 | 4c. Execute (headless) | `scripts/run-plan.sh` | `claude -p` per batch, fully autonomous |
-| 4d. Execute (loop) | `plugins/ralph-loop` | Stop-hook iteration until completion promise |
+| 4d. Execute (loop) | `commands/ralph-loop` | Stop-hook iteration until completion promise |
 | 5. Verify | `verification-before-completion` | Evidence-based gate: run commands, read output |
 | 6. Finish | `finishing-a-development-branch` | Merge / PR / Keep / Discard + worktree cleanup |
 
@@ -42,6 +42,10 @@ brainstorming → writing-plans → using-git-worktrees → [execution mode] →
 ## Directory Layout
 
 ```
+.claude-plugin/                  # Plugin metadata for marketplace
+├── plugin.json
+└── marketplace.json
+
 skills/                          # Claude Code skills (loaded via Skill tool)
 ├── brainstorming/SKILL.md
 ├── writing-plans/SKILL.md
@@ -69,37 +73,40 @@ skills/                          # Claude Code skills (loaded via Skill tool)
 ├── using-superpowers/SKILL.md
 └── verify/SKILL.md
 
-agents/                          # Agent definitions (dispatched via Task tool)
-└── lesson-scanner.md            # Scans for anti-patterns from lessons learned
+commands/                        # Claude Code slash commands
+├── code-factory.md              # /code-factory — full pipeline
+├── create-prd.md                # /create-prd — machine-verifiable PRD
+├── run-plan.md                  # /run-plan — in-session batch execution
+├── ralph-loop.md                # /ralph-loop — autonomous iteration loop
+├── cancel-ralph.md              # /cancel-ralph — stop active loop
+└── submit-lesson.md             # /submit-lesson — community lesson PR
 
-plugins/                         # Claude Code plugins (hooks + commands)
-└── ralph-loop/                  # Autonomous iteration via stop hook
-    ├── .claude-plugin/plugin.json
-    ├── scripts/setup-ralph-loop.sh
-    ├── hooks/stop-hook.sh
-    ├── hooks/hooks.json
-    └── commands/ralph-loop.md
+agents/                          # Agent definitions (dispatched via Task tool)
+└── lesson-scanner.md            # Dynamic anti-pattern scanner from lesson files
+
+hooks/                           # Claude Code event hooks
+├── hooks.json                   # Stop hook registration
+└── stop-hook.sh                 # Ralph loop stop-hook interceptor
 
 scripts/                         # Bash scripts for headless execution
 ├── run-plan.sh                  # Main runner (3 modes: headless/team/competitive)
 ├── lib/                         # run-plan.sh modules
+├── setup-ralph-loop.sh          # Ralph loop state file initialization
 ├── quality-gate.sh              # Composite gate: lesson-check + tests + memory
-├── lesson-check.sh              # Syntactic anti-pattern detector (<2s, grep-based)
+├── lesson-check.sh              # Dynamic anti-pattern detector (reads lesson files)
 ├── auto-compound.sh             # Full pipeline: report → PRD → execute → PR
 ├── entropy-audit.sh             # Detect doc drift, naming violations
 ├── batch-audit.sh               # Cross-project audit runner
 └── batch-test.sh                # Memory-aware cross-project test runner
 
-.claude/commands/                # Claude Code slash commands
-├── code-factory.md              # /code-factory — full pipeline
-├── create-prd.md                # /create-prd — machine-verifiable PRD
-└── run-plan.md                  # /run-plan — in-session batch execution
-
 docs/
-├── ARCHITECTURE.md              # Full system architecture (450 lines)
+├── ARCHITECTURE.md              # Full system architecture
+├── CONTRIBUTING.md              # How to submit lessons
 └── lessons/
-    ├── FRAMEWORK.md             # Lesson capture methodology (Army OIL taxonomy)
-    └── TEMPLATE.md              # Template for new lessons
+    ├── FRAMEWORK.md             # Lesson capture methodology
+    ├── TEMPLATE.md              # Template for new lessons (YAML schema)
+    ├── 0001-*.md through 0006-*.md  # Starter lessons
+    └── ...                      # Community-contributed lessons
 
 examples/
 ├── example-plan.md              # Sample implementation plan
@@ -107,6 +114,16 @@ examples/
 ```
 
 ## Installation
+
+### From the Marketplace
+
+```bash
+# Add as a marketplace source
+/plugin marketplace add parthalon025/autonomous-coding-toolkit
+
+# Install the plugin
+/plugin install autonomous-coding-toolkit@autonomous-coding-toolkit
+```
 
 ### As a Claude Code Plugin
 
@@ -139,6 +156,15 @@ Quality gates are mandatory between every batch. The default gate runs:
 Additionally enforced:
 - **Test count regression** — tests only go up between batches
 - **Git clean** — all changes committed before next batch
+
+## Community Lessons
+
+The lesson system is dynamic — adding a lesson file automatically adds a check. No code changes needed.
+
+- **Syntactic lessons** (grep-detectable) → `scripts/lesson-check.sh` runs them in <2s as a quality gate
+- **Semantic lessons** (need AI context) → `agents/lesson-scanner.md` picks them up at verification time
+
+Submit new lessons via `/submit-lesson` or open a PR. See `docs/CONTRIBUTING.md`.
 
 ## State & Persistence
 

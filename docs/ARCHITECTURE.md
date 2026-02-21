@@ -387,6 +387,38 @@ Pattern identified
       → Enforced at tool-call time (pre-write, pre-commit)
 ```
 
+### Community Lesson Loop
+
+Every user's production failures improve every other user's agent:
+
+```
+User encounters bug
+  │
+  ▼
+/submit-lesson command
+  │  Captures anti-pattern, generates structured YAML lesson file
+  │
+  ▼
+PR opened against toolkit repo
+  │  Maintainer reviews regex accuracy, severity, category
+  │
+  ▼
+Lesson file merged to docs/lessons/
+  │
+  ├─ pattern.type: syntactic
+  │    → lesson-check.sh reads regex from YAML, runs grep
+  │    → Enforced by quality gate on every batch (<2s)
+  │
+  └─ pattern.type: semantic
+       → lesson-scanner agent reads description + example
+       → Run during verification stage (AI-assisted analysis)
+  │
+  ▼
+Every user's next scan catches that anti-pattern
+```
+
+Adding a lesson file is all it takes — no code changes to the scanner or check script.
+
 ### Hookify (Real-Time Enforcement)
 
 Hookify rules run on every file write and commit. They are the last line of defense:
@@ -396,7 +428,7 @@ Hookify rules run on every file write and commit. They are the last line of defe
 - **secrets:** Block writes containing values from `~/.env`
 - **force-push:** Block `git push --force` and `-f`
 
-Design rule: Syntactic patterns (near-zero false positives) → hookify. Semantic patterns (needs context) → lesson-scanner agent.
+Design rule: Syntactic patterns (near-zero false positives) → lesson files with `pattern.type: syntactic` → `lesson-check.sh`. Semantic patterns (needs context) → lesson files with `pattern.type: semantic` → `lesson-scanner` agent. Reserve hookify for behavioral/workflow enforcement (process violations, security boundaries).
 
 ## Entropy Management
 
