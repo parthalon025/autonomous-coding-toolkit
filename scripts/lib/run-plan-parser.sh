@@ -58,6 +58,21 @@ get_batch_task_count() {
     echo "${count:-0}"
 }
 
+get_batch_context_refs() {
+    local plan_file="$1" batch_num="$2"
+    local batch_text
+    batch_text=$(get_batch_text "$plan_file" "$batch_num")
+    # Extract "context_refs: file1, file2, ..." line
+    local refs_line
+    refs_line=$(echo "$batch_text" | grep -E '^context_refs:' | head -1 || true)
+    if [[ -z "$refs_line" ]]; then
+        echo ""
+        return
+    fi
+    # Strip "context_refs: " prefix and split on comma
+    echo "${refs_line#context_refs: }" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//'
+}
+
 is_critical_batch() {
     local plan_file="$1" batch_num="$2"
     local header

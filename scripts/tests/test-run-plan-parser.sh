@@ -35,8 +35,9 @@ assert_contains() {
 }
 
 # --- Create test fixture ---
-FIXTURE=$(mktemp)
-trap "rm -f '$FIXTURE'" EXIT
+WORK=$(mktemp -d)
+trap "rm -rf '$WORK'" EXIT
+FIXTURE="$WORK/fixture.md"
 cat > "$FIXTURE" << 'EOF'
 # Feature X Implementation Plan
 
@@ -176,6 +177,36 @@ assert_eq "nonexistent batch title returns empty" "" "$title_empty"
 
 tc_empty=$(get_batch_task_count "$FIXTURE" 99)
 assert_eq "nonexistent batch task count returns 0" "0" "$tc_empty"
+
+# === get_batch_context_refs tests ===
+
+# Create a plan with context_refs
+cat > "$WORK/refs-plan.md" << 'PLAN'
+## Batch 1: Setup
+
+### Task 1: Create base
+Content here.
+
+## Batch 2: Build on base
+context_refs: src/auth.py, tests/test_auth.py
+
+### Task 2: Extend
+Uses auth module from batch 1.
+PLAN
+
+# Batch 1 has no refs
+val=$(get_batch_context_refs "$WORK/refs-plan.md" 1)
+assert_eq "get_batch_context_refs: batch 1 has no refs" "" "$val"
+
+# Batch 2 has refs
+val=$(get_batch_context_refs "$WORK/refs-plan.md" 2)
+echo "$val" | grep -q "src/auth.py" && echo "PASS: batch 2 refs include src/auth.py" && TESTS=$((TESTS + 1)) || {
+    echo "FAIL: batch 2 refs missing src/auth.py"; TESTS=$((TESTS + 1)); FAILURES=$((FAILURES + 1))
+}
+
+echo "$val" | grep -q "tests/test_auth.py" && echo "PASS: batch 2 refs include tests/test_auth.py" && TESTS=$((TESTS + 1)) || {
+    echo "FAIL: batch 2 refs missing tests/test_auth.py"; TESTS=$((TESTS + 1)); FAILURES=$((FAILURES + 1))
+}
 
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

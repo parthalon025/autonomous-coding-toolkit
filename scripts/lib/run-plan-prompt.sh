@@ -36,6 +36,22 @@ build_batch_prompt() {
         prev_gate=$(jq -r '.last_quality_gate // empty' "$worktree/.run-plan-state.json" 2>/dev/null || true)
     fi
 
+    # Cross-batch context: referenced files from context_refs
+    local context_refs_content=""
+    local refs
+    refs=$(get_batch_context_refs "$plan_file" "$batch_num")
+    if [[ -n "$refs" ]]; then
+        while IFS= read -r ref; do
+            [[ -z "$ref" ]] && continue
+            if [[ -f "$worktree/$ref" ]]; then
+                context_refs_content+="
+--- $ref ---
+$(head -100 "$worktree/$ref")
+"
+            fi
+        done <<< "$refs"
+    fi
+
     cat <<PROMPT
 You are implementing Batch ${batch_num}: ${title} from ${plan_file}.
 
@@ -56,6 +72,11 @@ fi)
 $(if [[ -n "$prev_gate" && "$prev_gate" != "null" ]]; then
 echo "
 Previous quality gate: ${prev_gate}"
+fi)
+$(if [[ -n "$context_refs_content" ]]; then
+echo "
+Referenced files from prior batches:
+${context_refs_content}"
 fi)
 
 Requirements:
