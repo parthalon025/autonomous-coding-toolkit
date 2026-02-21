@@ -35,11 +35,14 @@ assert_eq() {
 }
 
 # --- Test: format_success_message includes plan name ---
-msg=$(format_success_message "my-feature" 3 2003 1953 "4m12s" "headless")
+msg=$(format_success_message "my-feature" 3 10 "Context Assembler" 2003 1953 "4m12s" "headless" "")
 assert_contains "success includes plan name" "my-feature" "$msg"
 
-# --- Test: format_success_message includes batch number ---
-assert_contains "success includes batch number" "Batch 3" "$msg"
+# --- Test: format_success_message includes batch X/Y ---
+assert_contains "success includes batch X/Y" "Batch 3/10" "$msg"
+
+# --- Test: format_success_message includes batch title ---
+assert_contains "success includes batch title" "Context Assembler" "$msg"
 
 # --- Test: format_success_message includes check mark ---
 assert_contains "success includes check mark" "✓" "$msg"
@@ -51,7 +54,6 @@ assert_contains "success includes test count" "2003" "$msg"
 assert_contains "success includes delta" "↑50" "$msg"
 
 # --- Test: format_success_message delta calculation: 2003 - 1953 = 50 ---
-# Already covered above, but verify the exact delta value
 TESTS=$((TESTS + 1))
 if [[ "$msg" == *"↑50"* ]] && [[ "$msg" != *"↑500"* ]]; then
     echo "PASS: delta is exactly 50"
@@ -67,12 +69,19 @@ assert_contains "success includes duration" "4m12s" "$msg"
 # --- Test: format_success_message includes mode ---
 assert_contains "success includes mode" "headless" "$msg"
 
+# --- Test: format_success_message with summary ---
+msg=$(format_success_message "my-feature" 1 5 "Quick Fixes" 100 90 "2m30s" "headless" "Added 3 tests, fixed parser")
+assert_contains "success includes summary" "Added 3 tests, fixed parser" "$msg"
+
 # --- Test: format_failure_message includes plan name ---
-msg=$(format_failure_message "my-feature" 2 45 3 "pytest failed" "Fix test_auth.py")
+msg=$(format_failure_message "my-feature" 2 8 "ast-grep Rules" 45 3 "pytest failed" "Fix test_auth.py")
 assert_contains "failure includes plan name" "my-feature" "$msg"
 
-# --- Test: format_failure_message includes batch number ---
-assert_contains "failure includes batch number" "Batch 2" "$msg"
+# --- Test: format_failure_message includes batch X/Y ---
+assert_contains "failure includes batch X/Y" "Batch 2/8" "$msg"
+
+# --- Test: format_failure_message includes batch title ---
+assert_contains "failure includes batch title" "ast-grep Rules" "$msg"
 
 # --- Test: format_failure_message includes cross mark ---
 assert_contains "failure includes cross mark" "✗" "$msg"
@@ -83,8 +92,8 @@ assert_contains "failure includes test count" "45" "$msg"
 # --- Test: format_failure_message includes failing count ---
 assert_contains "failure includes failing count" "3 failing" "$msg"
 
-# --- Test: format_failure_message includes error text ---
-assert_contains "failure includes error" "pytest failed" "$msg"
+# --- Test: format_failure_message includes error as Issue ---
+assert_contains "failure includes issue text" "pytest failed" "$msg"
 
 # --- Test: format_failure_message includes action ---
 assert_contains "failure includes action" "Fix test_auth.py" "$msg"
@@ -93,7 +102,6 @@ assert_contains "failure includes action" "Fix test_auth.py" "$msg"
 WORK=$(mktemp -d)
 trap "rm -rf '$WORK'" EXIT
 
-# Point to a nonexistent .env
 msg=$(_load_telegram_env "$WORK/.env-nonexistent" 2>&1 || true)
 assert_contains "warns on missing env file" "warn" "$(echo "$msg" | tr '[:upper:]' '[:lower:]')"
 
@@ -104,7 +112,7 @@ msg=$(_send_telegram "test message" 2>&1 || true)
 assert_contains "send warns on missing credentials" "warn" "$(echo "$msg" | tr '[:upper:]' '[:lower:]')"
 
 # --- Test: format_success_message with zero delta ---
-msg=$(format_success_message "zero-delta" 1 100 100 "1m00s" "team")
+msg=$(format_success_message "zero-delta" 1 1 "Single Batch" 100 100 "1m00s" "team" "")
 assert_contains "zero delta shows ↑0" "↑0" "$msg"
 
 echo ""

@@ -2,8 +2,8 @@
 # run-plan-notify.sh — Telegram notification helpers for run-plan
 #
 # Functions:
-#   format_success_message <plan_name> <batch_num> <test_count> <prev_count> <duration> <mode>
-#   format_failure_message <plan_name> <batch_num> <test_count> <failing_count> <error> <action>
+#   format_success_message <plan_name> <batch_num> <total_batches> <batch_title> <test_count> <prev_count> <duration> <mode> [summary]
+#   format_failure_message <plan_name> <batch_num> <total_batches> <batch_title> <test_count> <failing_count> <error> <action>
 #   notify_success (same args as format_success_message) — format + send
 #   notify_failure (same args as format_failure_message) — format + send
 
@@ -12,18 +12,30 @@ _NOTIFY_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_NOTIFY_SCRIPT_DIR/telegram.sh"
 
 format_success_message() {
-    local plan_name="$1" batch_num="$2" test_count="$3" prev_count="$4" duration="$5" mode="$6"
+    local plan_name="$1" batch_num="$2" total_batches="$3" batch_title="$4"
+    local test_count="$5" prev_count="$6" duration="$7" mode="$8"
+    local summary="${9:-}"
     local delta=$(( test_count - prev_count ))
 
-    printf '%s — Batch %s ✓\nTests: %s (↑%s)\nDuration: %s\nMode: %s' \
-        "$plan_name" "$batch_num" "$test_count" "$delta" "$duration" "$mode"
+    local msg
+    msg=$(printf '%s — Batch %s/%s ✓\n*%s*\nTests: %s (↑%s) | %s | %s' \
+        "$plan_name" "$batch_num" "$total_batches" "$batch_title" \
+        "$test_count" "$delta" "$duration" "$mode")
+
+    if [[ -n "$summary" ]]; then
+        msg+=$'\n'"$summary"
+    fi
+
+    echo "$msg"
 }
 
 format_failure_message() {
-    local plan_name="$1" batch_num="$2" test_count="$3" failing_count="$4" error="$5" action="$6"
+    local plan_name="$1" batch_num="$2" total_batches="$3" batch_title="$4"
+    local test_count="$5" failing_count="$6" error="$7" action="$8"
 
-    printf '%s — Batch %s ✗\nTests: %s (%s failing)\nError: %s\nAction: %s' \
-        "$plan_name" "$batch_num" "$test_count" "$failing_count" "$error" "$action"
+    printf '%s — Batch %s/%s ✗\n*%s*\nTests: %s (%s failing)\nIssue: %s\nAction: %s' \
+        "$plan_name" "$batch_num" "$total_batches" "$batch_title" \
+        "$test_count" "$failing_count" "$error" "$action"
 }
 
 notify_success() {

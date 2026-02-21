@@ -75,7 +75,10 @@ parse_lesson() {
         }
 
         END {
-            # Shell-escape each value for eval using printf %q
+            # Shell-escape single quotes in values before wrapping
+            gsub(/'/, "'"'"'\\'"'"'\\'"'"'\\'"'"''"'"'", title)
+            gsub(/'/, "'"'"'\\'"'"'\\'"'"'\\'"'"''"'"'", pregex)
+            gsub(/'/, "'"'"'\\'"'"'\\'"'"'\\'"'"''"'"'", langs)
             printf "lesson_id=%s\n",      id
             printf "lesson_title='"'"'%s'"'"'\n", title
             printf "lesson_severity=%s\n", severity
