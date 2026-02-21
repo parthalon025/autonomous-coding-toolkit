@@ -20,6 +20,7 @@ source "$SCRIPT_DIR/lib/run-plan-quality-gate.sh"
 source "$SCRIPT_DIR/lib/run-plan-notify.sh"
 source "$SCRIPT_DIR/lib/run-plan-prompt.sh"
 source "$SCRIPT_DIR/lib/run-plan-headless.sh"
+source "$SCRIPT_DIR/lib/run-plan-context.sh"
 
 # --- Defaults ---
 PLAN_FILE=""

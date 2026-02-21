@@ -49,6 +49,28 @@ run_mode_headless() {
             continue
         fi
 
+        # Generate and inject per-batch context into CLAUDE.md
+        local batch_context _claude_md_existed=false _claude_md_backup=""
+        batch_context=$(generate_batch_context "$PLAN_FILE" "$batch" "$WORKTREE" 2>/dev/null || true)
+        if [[ -n "$batch_context" ]]; then
+            local claude_md="$WORKTREE/CLAUDE.md"
+            if [[ -f "$claude_md" ]]; then
+                _claude_md_existed=true
+                _claude_md_backup=$(cat "$claude_md")
+            fi
+            # Remove previous run-plan context section if present
+            if [[ -f "$claude_md" ]] && grep -q "^## Run-Plan:" "$claude_md"; then
+                local tmp
+                tmp=$(mktemp)
+                sed '/^## Run-Plan:/,/^## [^R]/{ /^## [^R]/!d; }' "$claude_md" > "$tmp"
+                sed -i '/^## Run-Plan:/d' "$tmp"
+                mv "$tmp" "$claude_md"
+            fi
+            # Append new context
+            echo "" >> "$claude_md"
+            echo "$batch_context" >> "$claude_md"
+        fi
+
         local prev_test_count
         prev_test_count=$(get_previous_test_count "$WORKTREE")
 
@@ -101,6 +123,16 @@ Focus on fixing the root cause. Check test output carefully."
 
             if [[ $claude_exit -ne 0 ]]; then
                 echo "WARNING: claude exited with code $claude_exit"
+            fi
+
+            # Restore CLAUDE.md to pre-injection state (prevent git-clean failure)
+            if [[ -n "$batch_context" ]]; then
+                local claude_md="$WORKTREE/CLAUDE.md"
+                if [[ "$_claude_md_existed" == true ]]; then
+                    echo "$_claude_md_backup" > "$claude_md"
+                else
+                    rm -f "$claude_md"
+                fi
             fi
 
             # Compute duration before quality gate (includes claude time, not gate time)
