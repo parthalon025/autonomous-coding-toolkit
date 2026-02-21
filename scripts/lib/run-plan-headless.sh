@@ -9,7 +9,7 @@
 #
 # Requires these libs sourced:
 #   run-plan-parser.sh, run-plan-state.sh, run-plan-quality-gate.sh,
-#   run-plan-notify.sh, run-plan-prompt.sh
+#   run-plan-notify.sh, run-plan-prompt.sh, run-plan-scoring.sh
 
 run_mode_headless() {
     mkdir -p "$WORKTREE/logs"
@@ -89,6 +89,94 @@ run_mode_headless() {
 
             echo ""
             echo "--- Attempt $attempt of $max_attempts ---"
+
+            # If sampling enabled and this is a retry, use parallel candidates
+            if [[ "${SAMPLE_COUNT:-0}" -gt 0 && $attempt -ge 2 ]]; then
+                echo "  Sampling $SAMPLE_COUNT candidates for batch $batch..."
+                local scores=""
+                local candidate_logs=()
+
+                # Save current state so we can reset between candidates
+                (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
+
+                for ((c = 0; c < SAMPLE_COUNT; c++)); do
+                    local variant_suffix=""
+                    case $c in
+                        0) variant_suffix="" ;;  # vanilla retry
+                        1) variant_suffix=$'\nIMPORTANT: Take a fundamentally different approach than the previous attempt.' ;;
+                        2) variant_suffix=$'\nIMPORTANT: Make the minimum possible change to pass the quality gate.' ;;
+                    esac
+
+                    local candidate_log="$WORKTREE/logs/batch-${batch}-candidate-${c}.log"
+                    candidate_logs+=("$candidate_log")
+
+                    # Restore clean state for each candidate
+                    (cd "$WORKTREE" && git checkout . 2>/dev/null && git stash pop -q 2>/dev/null || true)
+                    (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
+
+                    CLAUDECODE= claude -p "${prompt}${variant_suffix}" \
+                        --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
+                        --permission-mode bypassPermissions \
+                        2>&1 > "$candidate_log" || true
+
+                    # Score this candidate
+                    local gate_exit=0
+                    run_quality_gate "$WORKTREE" "$QUALITY_GATE_CMD" "sample-$c" "0" || gate_exit=$?
+                    local gate_passed=0
+                    [[ $gate_exit -eq 0 ]] && gate_passed=1
+
+                    local new_tests
+                    new_tests=$(get_previous_test_count "$WORKTREE")
+                    local diff_size
+                    diff_size=$(cd "$WORKTREE" && git diff --stat HEAD 2>/dev/null | tail -1 | grep -oE '[0-9]+' | head -1 || echo "100")
+
+                    local score
+                    score=$(score_candidate "$gate_passed" "${new_tests:-0}" "${diff_size:-100}" "0" "0" "0")
+                    scores+="$score "
+
+                    echo "  Candidate $c: score=$score (gate=$gate_passed, tests=${new_tests:-0})"
+
+                    # If gate failed, reset for next candidate
+                    if [[ $gate_passed -eq 0 ]]; then
+                        (cd "$WORKTREE" && git checkout . 2>/dev/null || true)
+                    else
+                        # Stash the winning state so we can restore it
+                        (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
+                    fi
+                done
+
+                # Pick winner
+                local winner
+                winner=$(select_winner "$scores")
+                if [[ "$winner" -ge 0 ]]; then
+                    echo "  Winner: candidate $winner (scores: $scores)"
+
+                    # Restore winner's stashed state
+                    (cd "$WORKTREE" && git stash pop -q 2>/dev/null || true)
+
+                    # Log sampling outcome
+                    local outcomes_file="$WORKTREE/logs/sampling-outcomes.json"
+                    mkdir -p "$(dirname "$outcomes_file")"
+                    [[ ! -f "$outcomes_file" ]] && echo "[]" > "$outcomes_file"
+
+                    local variant_name="vanilla"
+                    [[ "$winner" -eq 1 ]] && variant_name="different-approach"
+                    [[ "$winner" -eq 2 ]] && variant_name="minimal-change"
+
+                    jq --arg bt "$title" --arg vn "$variant_name" --arg sc "$(echo "$scores" | awk '{print $1}')" \
+                        '. += [{"batch_type": $bt, "prompt_variant": $vn, "won": true, "score": ($sc | tonumber), "timestamp": now | tostring}]' \
+                        "$outcomes_file" > "$outcomes_file.tmp" && mv "$outcomes_file.tmp" "$outcomes_file" || true
+
+                    batch_passed=true
+                    break
+                else
+                    echo "  No candidate passed quality gate"
+                    # Restore clean state
+                    (cd "$WORKTREE" && git stash pop -q 2>/dev/null || true)
+                fi
+
+                continue  # Skip normal retry path below
+            fi
 
             # Build escalation context for retries
             local full_prompt="$prompt"

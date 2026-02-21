@@ -21,6 +21,7 @@ source "$SCRIPT_DIR/lib/run-plan-notify.sh"
 source "$SCRIPT_DIR/lib/run-plan-prompt.sh"
 source "$SCRIPT_DIR/lib/run-plan-headless.sh"
 source "$SCRIPT_DIR/lib/run-plan-context.sh"
+source "$SCRIPT_DIR/lib/run-plan-scoring.sh"
 
 # --- Defaults ---
 PLAN_FILE=""
@@ -33,6 +34,7 @@ QUALITY_GATE_CMD="scripts/quality-gate.sh --project-root ."
 ON_FAILURE="stop"
 MAX_RETRIES=2
 COMPETITIVE_BATCHES=""
+SAMPLE_COUNT=0  # 0 = disabled
 NOTIFY=false
 VERIFY=false
 RESUME=false
@@ -58,6 +60,8 @@ Options:
   --on-failure <stop|skip|retry>       Failure handling (default: stop)
   --max-retries N                      Max retries per batch (default: 2)
   --competitive-batches N,N,...        Batches for competitive mode
+  --sample N                           Parallel patch sampling (N candidates, default 3)
+  --no-sample                          Disable sampling (default)
   --notify                             Send Telegram notifications
   --verify                             Run verification after all batches
   --resume                             Resume from saved state
@@ -111,6 +115,12 @@ parse_args() {
                 ;;
             --competitive-batches)
                 COMPETITIVE_BATCHES="$2"; shift 2
+                ;;
+            --sample)
+                SAMPLE_COUNT="${2:-3}"; shift 2
+                ;;
+            --no-sample)
+                SAMPLE_COUNT=0; shift
                 ;;
             --notify)
                 NOTIFY=true; shift
