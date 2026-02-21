@@ -71,16 +71,16 @@ IMPORTANT: Previous attempt failed. Review the quality gate output and fix the i
 The previous attempt log is available at: $prev_log"
             elif [[ $attempt -ge 3 ]]; then
                 local prev_log="$WORKTREE/logs/batch-${batch}-attempt-$((attempt - 1)).log"
-                local log_tail=""
+                local log_digest=""
                 if [[ -f "$prev_log" ]]; then
-                    log_tail=$(tail -50 "$prev_log" 2>/dev/null || true)
+                    log_digest=$("$SCRIPT_DIR/../failure-digest.sh" "$prev_log" 2>/dev/null || tail -50 "$prev_log" 2>/dev/null || true)
                 fi
                 full_prompt="$prompt
 
 IMPORTANT: Previous attempts failed ($((attempt - 1)) so far). This is attempt $attempt.
-Tail of previous attempt log:
+Failure digest from previous attempt:
 \`\`\`
-$log_tail
+$log_digest
 \`\`\`
 Focus on fixing the root cause. Check test output carefully."
             fi
