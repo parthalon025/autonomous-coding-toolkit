@@ -225,11 +225,11 @@ classify_batch_model() {
 
     # Check if batch is mostly Run commands (verification) = haiku
     local total_steps
-    total_steps=$(echo "$batch_text" | grep -cE -- '^\*\*Step [0-9]+' 2>/dev/null || echo "0")
-    total_steps=$((total_steps + 0))
+    total_steps=$(echo "$batch_text" | grep -cE -- '^\*\*Step [0-9]+' 2>/dev/null || true)
+    total_steps=${total_steps:-0}
     local run_steps
-    run_steps=$(echo "$batch_text" | grep -cE -- '^Run: ' 2>/dev/null || echo "0")
-    run_steps=$((run_steps + 0))
+    run_steps=$(echo "$batch_text" | grep -cE -- '^Run: ' 2>/dev/null || true)
+    run_steps=${run_steps:-0}
     if [[ "$total_steps" -gt 0 && "$run_steps" -ge "$total_steps" ]]; then
         echo "haiku"
         return
