@@ -1,4 +1,4 @@
-# A/B Run System Design
+# Multi-Armed Bandit System Design
 
 **Date:** 2026-02-22
 **Status:** Approved
@@ -16,7 +16,7 @@ The toolkit has two execution strategies — structured (superpowers skill chain
 
 3. **Human input ends at PRD approval.** Brainstorm → design → PRD is human-in-the-loop. Everything after is machine-driven.
 
-4. **Every run produces learning.** A/B lessons, strategy performance data, and failure mode classifications feed back into future runs. Community contributions propagate via git.
+4. **Every run produces learning.** MAB lessons, strategy performance data, and failure mode classifications feed back into future runs. Community contributions propagate via git.
 
 ## Architecture
 
@@ -28,9 +28,9 @@ PHASE 1 — HUMAN + SINGLE AGENT (shared)
 
 PHASE 2 — PLANNER AGENT (LLM)
   Reads: design doc, PRD, architecture map, strategy-perf.json
-  Decides per work unit: A/B or single? Which strategy? Unit size?
+  Decides per work unit: MAB or single? Which strategy? Unit size?
 
-PHASE 3 — A/B EXECUTION (parallel worktrees)
+PHASE 3 — MAB EXECUTION (parallel worktrees)
   Agent A (superpowers): writes own plan, TDD, batch-by-batch
   Agent B (ralph): iterates until PRD criteria pass
 
@@ -44,7 +44,7 @@ PHASE 5 — MERGE + LEARN
 
 ## Shared Inputs (Human-Approved)
 
-All created before A/B execution begins. Human approves design and PRD.
+All created before MAB execution begins. Human approves design and PRD.
 
 | Artifact | Source | Purpose |
 |----------|--------|---------|
@@ -73,7 +73,7 @@ Both agents receive identical toolkit context. The only difference is the lead i
    Design doc
    tasks/prd.json
    docs/ARCHITECTURE-MAP.json
-   logs/ab-lessons.json           (previous A/B learnings)
+   logs/mab-lessons.json           (previous MAB learnings)
 
 4. All skills available via Skill tool
 ```
@@ -112,20 +112,20 @@ Natural behavior:
 
 ## Worktree Isolation
 
-Each A/B run creates two git worktrees branched from HEAD.
+Each MAB run creates two git worktrees branched from HEAD.
 
 ```bash
 # Create worktrees
-git worktree add .claude/worktrees/ab-a-batch-N -b ab-a-batch-N HEAD
-git worktree add .claude/worktrees/ab-b-batch-N -b ab-b-batch-N HEAD
+git worktree add .claude/worktrees/mab-a-batch-N -b mab-a-batch-N HEAD
+git worktree add .claude/worktrees/mab-b-batch-N -b mab-b-batch-N HEAD
 
 # After judge picks winner (say A):
-git merge ab-a-batch-N
+git merge mab-a-batch-N
 
 # Cleanup
-git worktree remove .claude/worktrees/ab-a-batch-N
-git worktree remove .claude/worktrees/ab-b-batch-N
-git branch -d ab-a-batch-N ab-b-batch-N
+git worktree remove .claude/worktrees/mab-a-batch-N
+git worktree remove .claude/worktrees/mab-b-batch-N
+git branch -d mab-a-batch-N mab-b-batch-N
 ```
 
 Both agents run in parallel. Neither can see the other's work.
@@ -148,8 +148,8 @@ For each work unit:
   1. Classify type: new-file, refactoring, integration, test-only
   2. Check strategy-perf.json for this type
   3. If clear winner (>70% win rate, 10+ data points): route to winner
-  4. If uncertain or insufficient data: A/B run
-  5. If error-prone type (historically high retry rate): A/B run
+  4. If uncertain or insufficient data: MAB run
+  5. If error-prone type (historically high retry rate): MAB run
 ```
 
 ### Output
@@ -169,7 +169,7 @@ For each work unit:
       "unit": 2,
       "description": "Integration wiring and CI",
       "type": "integration",
-      "decision": "ab_run",
+      "decision": "mmab_run",
       "reasoning": "integration: superpowers 55%, only 8 data points — need more data"
     }
   ]
@@ -180,9 +180,9 @@ For each work unit:
 
 | Project size | Strategy |
 |-------------|----------|
-| Small (< 5 PRD tasks) | A/B the whole project |
+| Small (< 5 PRD tasks) | MAB the whole project |
 | Medium (5-15 PRD tasks) | Chunk by PRD dependency groups, route per chunk |
-| Large (15+ PRD tasks) | Phase 1: A/B (explore), Phase 2+: route to winners (exploit) |
+| Large (15+ PRD tasks) | Phase 1: MAB (explore), Phase 2+: route to winners (exploit) |
 
 ## Judge Agent
 
@@ -194,7 +194,7 @@ An LLM agent that evaluates both candidates after execution.
 1. Full plan context: design doc, PRD, architecture map
 2. Both diffs: git diff main...ab-a, git diff main...ab-b
 3. Quality gate results for both
-4. All previous A/B lessons: logs/ab-lessons.json
+4. All previous MAB lessons: logs/mab-lessons.json
 5. Score from automated scoring (test count, diff size, gate pass)
 ```
 
@@ -264,7 +264,7 @@ An LLM agent that evaluates both candidates after execution.
 
 ## Data Files
 
-### `logs/ab-lessons.json` — Accumulated A/B Lessons
+### `logs/mab-lessons.json` — Accumulated MMAB Lessons
 
 ```json
 [
@@ -325,8 +325,8 @@ An LLM agent that evaluates both candidates after execution.
 ## Lesson Lifecycle
 
 ```
-A/B judge extracts lesson
-  → logs/ab-lessons.json (immediate, local)
+MAB judge extracts lesson
+  → logs/mab-lessons.json (immediate, local)
 
 Pattern recurs 3+ times (same pattern across runs)
   → Auto-promoted to docs/lessons/NNNN-*.md
@@ -334,7 +334,7 @@ Pattern recurs 3+ times (same pattern across runs)
   → lesson-scanner agent enforces semantic lessons
 
 Promoted lesson causes quality gate failure
-  → Tagged "disputed" in ab-lessons.json
+  → Tagged "disputed" in mab-lessons.json
   → Excluded from injection until human review
 
 User runs /submit-lesson
@@ -353,7 +353,7 @@ User runs /submit-lesson
 
 # Creates PR with:
 #   docs/lessons/NNNN-<slug>.md (the lesson)
-#   Commit message references the A/B run that produced it
+#   Commit message references the MAB run that produced it
 ```
 
 ### Consuming Community Lessons
@@ -388,7 +388,7 @@ Uses the existing Pinecone MCP integration.
 
 ## Infrastructure Scripts
 
-### `scripts/ab-run.sh` — Orchestrator
+### `scripts/mab-run.sh` — Orchestrator
 
 Thin bash script that:
 1. Creates worktrees
@@ -421,24 +421,24 @@ Fetches latest lessons and strategy data from upstream repo.
 ## File Summary
 
 New files:
-- `scripts/ab-run.sh` — A/B execution orchestrator
+- `scripts/mab-run.sh` — MAB execution orchestrator
 - `scripts/architecture-map.sh` — module graph generator
 - `scripts/pull-community-lessons.sh` — community lesson sync
 - `scripts/prompts/planner-agent.md` — planner prompt
 - `scripts/prompts/judge-agent.md` — judge prompt
 - `scripts/prompts/agent-a-superpowers.md` — Agent A instructions
 - `scripts/prompts/agent-b-ralph.md` — Agent B instructions
-- `scripts/tests/test-ab-run.sh` — A/B orchestrator tests
+- `scripts/tests/test-mab-run.sh` — MAB orchestrator tests
 - `scripts/tests/test-architecture-map.sh` — map generator tests
-- `docs/plans/2026-02-22-ab-run-design.md` — this document
+- `docs/plans/2026-02-22-mab-run-design.md` — this document
 
 Modified files:
-- `scripts/run-plan.sh` — add `--ab` flag that routes through `ab-run.sh`
-- `scripts/lib/run-plan-context.sh` — inject A/B lessons into batch context
-- `docs/ARCHITECTURE.md` — document A/B system
+- `scripts/run-plan.sh` — add `--mab` flag that routes through `mab-run.sh`
+- `scripts/lib/run-plan-context.sh` — inject MAB lessons into batch context
+- `docs/ARCHITECTURE.md` — document MAB system
 
 Data files (created at runtime):
-- `logs/ab-lessons.json`
+- `logs/mab-lessons.json`
 - `logs/strategy-perf.json`
-- `logs/ab-run-<timestamp>.json`
+- `logs/mab-run-<timestamp>.json`
 - `docs/ARCHITECTURE-MAP.json`
