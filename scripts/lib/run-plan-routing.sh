@@ -18,6 +18,18 @@ MIN_MEMORY_TEAM_GB=8             # Minimum memory for team mode
 # shellcheck disable=SC2034  # MIN_BATCHES_TEAM reserved for future use
 MIN_BATCHES_TEAM=3               # Need at least 3 batches to justify team mode
 
+# --- Sampling configuration ---
+# shellcheck disable=SC2034  # consumed by run-plan-headless.sh
+SAMPLE_ON_RETRY=true             # auto-sample when batch fails first attempt
+# shellcheck disable=SC2034
+SAMPLE_ON_CRITICAL=true          # auto-sample for CRITICAL batches
+# shellcheck disable=SC2034
+SAMPLE_DEFAULT_COUNT=3           # default candidate count
+# shellcheck disable=SC2034
+SAMPLE_MAX_COUNT=5               # hard cap
+# shellcheck disable=SC2034
+SAMPLE_MIN_MEMORY_PER_GB=4       # per-candidate memory requirement (GB)
+
 # --- Extract files touched by a batch ---
 # Returns lines like "Create:src/lib.sh" or "Modify:src/lib.sh"
 _get_batch_files() {
