@@ -1,4 +1,3 @@
-```yaml
 ---
 id: 56
 title: "grep -c exits 1 on zero matches, breaking || fallback arithmetic"
@@ -40,4 +39,3 @@ Never use `grep -c ... || echo "0"` for count fallback. Use
 `grep -c ... || true` to suppress the exit code, then `${var:-0}` as
 the numeric default. This pattern is safe because `|| true` doesn't
 add to stdout — it only prevents `set -e` from aborting the script.
-```

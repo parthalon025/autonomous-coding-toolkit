@@ -1,4 +1,3 @@
-```yaml
 ---
 id: 57
 title: "New generated artifacts break git-clean quality gates"
@@ -40,4 +39,3 @@ Whenever you add a new generated file to a pipeline: (1) add it to the
 project's `.gitignore`, (2) add it to every E2E test fixture's
 `.gitignore`, (3) run the E2E test before committing. The unit test for
 the generator won't catch this because it doesn't run the quality gate.
-```
