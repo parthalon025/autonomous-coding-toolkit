@@ -2,6 +2,7 @@
 .run-plan-state.json
 logs/
 progress.txt
+AGENTS.md
 
 # Python
 __pycache__/
