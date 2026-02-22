@@ -33,8 +33,9 @@ _log_exit() {
 }
 trap '_log_exit $?' EXIT
 
-# Ignore HUP so background execution survives terminal disconnect
-trap '' HUP
+# Ignore HUP and PIPE so background execution survives terminal disconnect
+# and broken pipe from task manager stdout (confirmed root cause: exit 141 = SIGPIPE)
+trap '' HUP PIPE
 
 # Source all lib functions
 source "$SCRIPT_DIR/lib/run-plan-parser.sh"
