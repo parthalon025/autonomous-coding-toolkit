@@ -47,25 +47,28 @@ run_mode_headless() {
         fi
 
         # Generate and inject per-batch context into CLAUDE.md
-        local batch_context _claude_md_existed=false _claude_md_backup=""
+        # Guard all CLAUDE.md manipulation — failures here must not kill the run
+        local batch_context="" _claude_md_existed=false _claude_md_backup=""
         batch_context=$(generate_batch_context "$PLAN_FILE" "$batch" "$WORKTREE" 2>/dev/null || true)
         if [[ -n "$batch_context" ]]; then
-            local claude_md="$WORKTREE/CLAUDE.md"
-            if [[ -f "$claude_md" ]]; then
-                _claude_md_existed=true
-                _claude_md_backup=$(cat "$claude_md")
-            fi
-            # Remove previous run-plan context section if present
-            if [[ -f "$claude_md" ]] && grep -q "^## Run-Plan:" "$claude_md"; then
-                local tmp
-                tmp=$(mktemp)
-                sed '/^## Run-Plan:/,/^## [^R]/{ /^## [^R]/!d; }' "$claude_md" > "$tmp"
-                sed -i '/^## Run-Plan:/d' "$tmp"
-                mv "$tmp" "$claude_md"
-            fi
-            # Append new context
-            echo "" >> "$claude_md"
-            echo "$batch_context" >> "$claude_md"
+            {
+                local claude_md="$WORKTREE/CLAUDE.md"
+                if [[ -f "$claude_md" ]]; then
+                    _claude_md_existed=true
+                    _claude_md_backup=$(cat "$claude_md")
+                fi
+                # Remove previous run-plan context section if present
+                if [[ -f "$claude_md" ]] && grep -q "^## Run-Plan:" "$claude_md"; then
+                    local tmp
+                    tmp=$(mktemp)
+                    sed '/^## Run-Plan:/,/^## [^R]/{ /^## [^R]/!d; }' "$claude_md" > "$tmp"
+                    sed -i '/^## Run-Plan:/d' "$tmp"
+                    mv "$tmp" "$claude_md"
+                fi
+                # Append new context
+                echo "" >> "$claude_md"
+                echo "$batch_context" >> "$claude_md"
+            } || echo "WARNING: Failed to inject batch context into CLAUDE.md (non-fatal)" >&2
         fi
 
         local prev_test_count
@@ -244,12 +247,14 @@ Focus on fixing the root cause. Check test output carefully."
 
             # Restore CLAUDE.md to pre-injection state (prevent git-clean failure)
             if [[ -n "$batch_context" ]]; then
-                local claude_md="$WORKTREE/CLAUDE.md"
-                if [[ "$_claude_md_existed" == true ]]; then
-                    echo "$_claude_md_backup" > "$claude_md"
-                else
-                    rm -f "$claude_md"
-                fi
+                {
+                    local claude_md="$WORKTREE/CLAUDE.md"
+                    if [[ "$_claude_md_existed" == true ]]; then
+                        echo "$_claude_md_backup" > "$claude_md"
+                    else
+                        rm -f "$claude_md"
+                    fi
+                } || echo "WARNING: Failed to restore CLAUDE.md (non-fatal)" >&2
             fi
 
             # Compute duration before quality gate (includes claude time, not gate time)
@@ -267,28 +272,32 @@ Focus on fixing the root cause. Check test output carefully."
                 batch_passed=true
 
                 if [[ "$NOTIFY" == true ]]; then
-                    local new_test_count
-                    new_test_count=$(get_previous_test_count "$WORKTREE")
-                    # Build summary from git log (commits in this batch)
-                    local batch_summary=""
-                    batch_summary=$(cd "$WORKTREE" && git log --oneline -5 2>/dev/null | head -3 | sed 's/^[a-f0-9]* /• /' | tr '\n' '; ' | sed 's/; $//')
-                    notify_success "$plan_name" "$batch" "$END_BATCH" "$title" "$new_test_count" "$prev_test_count" "$duration" "$MODE" "$batch_summary" || true
+                    {
+                        local new_test_count
+                        new_test_count=$(get_previous_test_count "$WORKTREE")
+                        # Build summary from git log (commits in this batch)
+                        local batch_summary=""
+                        batch_summary=$(cd "$WORKTREE" && git log --oneline -5 2>/dev/null | head -3 | sed 's/^[a-f0-9]* /• /' | tr '\n' '; ' | sed 's/; $//') || true
+                        notify_success "$plan_name" "$batch" "$END_BATCH" "$title" "$new_test_count" "$prev_test_count" "$duration" "$MODE" "$batch_summary"
+                    } || echo "WARNING: Telegram notification failed (non-fatal)" >&2
                 fi
                 break
             else
                 echo "Batch $batch FAILED on attempt $attempt (${duration})"
 
                 if [[ "$NOTIFY" == true ]]; then
-                    notify_failure "$plan_name" "$batch" "$END_BATCH" "$title" "0" "?" "Quality gate failed" "$ON_FAILURE" || true
+                    notify_failure "$plan_name" "$batch" "$END_BATCH" "$title" "0" "?" "Quality gate failed" "$ON_FAILURE" || echo "WARNING: Telegram notification failed (non-fatal)" >&2
                 fi
 
                 # Record failure pattern for cross-run learning
-                local fail_type="quality gate failure"
-                if [[ -f "$log_file" ]]; then
-                    fail_type=$(grep -oE "(FAIL|ERROR|FAILED).*" "$log_file" | head -1 | cut -c1-80 || echo "quality gate failure")
-                    [[ -z "$fail_type" ]] && fail_type="quality gate failure"
-                fi
-                record_failure_pattern "$WORKTREE" "$title" "$fail_type" "" || true
+                {
+                    local fail_type="quality gate failure"
+                    if [[ -f "$log_file" ]]; then
+                        fail_type=$(grep -oE "(FAIL|ERROR|FAILED).*" "$log_file" | head -1 | cut -c1-80 || echo "quality gate failure")
+                        [[ -z "$fail_type" ]] && fail_type="quality gate failure"
+                    fi
+                    record_failure_pattern "$WORKTREE" "$title" "$fail_type" ""
+                } || echo "WARNING: Failed to record failure pattern (non-fatal)" >&2
 
                 # Handle failure mode
                 if [[ "$ON_FAILURE" == "stop" ]]; then

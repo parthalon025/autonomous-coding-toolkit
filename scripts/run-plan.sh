@@ -13,6 +13,29 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# --- Signal handling ---
+# Log unexpected exits for diagnostics (silent death prevention)
+_run_plan_exit_code=0
+_run_plan_exit_logged=false
+_log_exit() {
+    local code=${1:-$?}
+    [[ "$_run_plan_exit_logged" == true ]] && return
+    _run_plan_exit_logged=true
+    if [[ $code -ne 0 ]]; then
+        echo "" >&2
+        echo "run-plan: EXIT with code $code at $(date -u +%Y-%m-%dT%H:%M:%SZ)" >&2
+        # Print last few lines of bash call stack
+        local i
+        for ((i = 0; i < ${#FUNCNAME[@]}; i++)); do
+            echo "  ${BASH_SOURCE[$i]:-unknown}:${BASH_LINENO[$i]:-?} in ${FUNCNAME[$i]:-main}" >&2
+        done
+    fi
+}
+trap '_log_exit $?' EXIT
+
+# Ignore HUP so background execution survives terminal disconnect
+trap '' HUP
+
 # Source all lib functions
 source "$SCRIPT_DIR/lib/run-plan-parser.sh"
 source "$SCRIPT_DIR/lib/run-plan-state.sh"
