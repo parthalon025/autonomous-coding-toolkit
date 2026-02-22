@@ -67,9 +67,9 @@ for skill_dir in "$SKILLS_DIR"/*/; do
     body=$(sed -n '/^---$/,$ p' "$skill_file" | tail -n +2)
     body=$(echo "$body" | sed -n '/^---$/,$ p' | tail -n +2)
     if [[ -n "$body" ]]; then
-        # Strip backtick-delimited content (paths like `docs/plans/foo.md`)
-        # then extract bare .md filenames — these are companion file references
-        cleaned=$(echo "$body" | sed 's/`[^`]*`//g')
+        # Strip fenced code blocks and inline backtick-delimited content
+        # (paths like `docs/plans/foo.md`) — only bare .md refs are companion files
+        cleaned=$(echo "$body" | sed '/^```/,/^```/d' | sed 's/`[^`]*`//g')
         referenced=$(echo "$cleaned" | grep -oE '[a-zA-Z0-9_-]+\.md' | sort -u || true)
         for ref in $referenced; do
             [[ "$ref" == "SKILL.md" ]] && continue

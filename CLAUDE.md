@@ -199,3 +199,25 @@ Three mechanisms prevent data loss across context resets:
 - Skills are rigid — follow exactly, don't adapt away discipline
 - Brainstorming is mandatory before any new feature — no exceptions
 - No completion claims without fresh verification evidence
+
+## Run-Plan: Batch 5
+
+
+### Recent Commits
+504dd75 feat: add validate-plugin, validate-hooks, validate-all with tests
+aca7912 fix: add SIGPIPE trap — confirmed root cause of silent death (exit 141)
+c91e272 fix: add signal handling and non-critical command guards to run-plan.sh
+404ade0 feat: add validate-plans.sh and validate-prd.sh with tests
+4bc8ca4 docs: add Telegram notification format spec
+
+### Progress Notes
+| validate-plugin.sh | 77 (new) |
+| validate-hooks.sh | 68 (new) |
+| validate-all.sh | 53 (new) |
+
+### Decisions
+- validate-all runs validators silently (>/dev/null 2>&1) and reports only PASS/FAIL — individual validators can be run standalone for details
+- validate-all skips missing validators with SKIP instead of failing — forward-compatible with future validators
+- validate-plugin extracts marketplace version from `.plugins[0].version` (first plugin entry)
+- validate-hooks uses jq recursive descent (`.. | objects | select(.type == "command")`) to find all command hooks regardless of nesting depth
+- Pre-existing validate-skills failures (code-factory missing SKILL.md, using-git-worktrees referencing CLAUDE.md) — validate-all test accounts for this by using --warn for the pass test and verifying FAIL reporting separately

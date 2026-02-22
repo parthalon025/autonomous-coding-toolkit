@@ -16,6 +16,7 @@ Usage: quality-gate.sh --project-root <dir> [--quick] [--with-license]
 Composite quality gate for the Ralph loop. Runs checks in order, stops at first failure.
 
 Checks:
+  0. Toolkit validation — runs validate-all.sh if present (toolkit self-check)
   1. Lesson check — runs lesson-check.sh on git-changed files in project root
   2. Lint check — ruff (Python) or eslint (Node) if available (skipped with --quick)
   3. Project test suite — auto-detects pytest / npm test / make test
@@ -70,6 +71,17 @@ if [[ ! -d "$PROJECT_ROOT" ]]; then
 fi
 
 cd "$PROJECT_ROOT"
+
+# === Check 0: Toolkit Self-Validation ===
+# Only runs when quality-gate is invoked from the toolkit itself
+if [[ -f "$PROJECT_ROOT/scripts/validate-all.sh" ]]; then
+    echo "=== Quality Gate: Toolkit Validation ==="
+    if ! bash "$PROJECT_ROOT/scripts/validate-all.sh"; then
+        echo ""
+        echo "quality-gate: FAILED at toolkit validation"
+        exit 1
+    fi
+fi
 
 # === Check 1: Lesson check on changed files ===
 echo "=== Quality Gate: Lesson Check ==="
