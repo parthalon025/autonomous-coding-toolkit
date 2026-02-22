@@ -20,6 +20,9 @@ run_mode_headless() {
         fi
     fi
 
+    # Generate AGENTS.md for agent awareness
+    generate_agents_md "$PLAN_FILE" "$WORKTREE" "$MODE"
+
     # Load telegram credentials if notifications enabled
     if [[ "$NOTIFY" == true ]]; then
         _load_telegram_env || echo "WARNING: Telegram notifications unavailable" >&2

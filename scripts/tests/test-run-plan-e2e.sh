@@ -22,6 +22,7 @@ git -C "$WORK" config user.name "Test"
 # Gitignore run-plan artifacts so check_git_clean passes
 cat > "$WORK/.gitignore" <<'GITIGNORE'
 .run-plan-state.json
+AGENTS.md
 logs/
 GITIGNORE
 
