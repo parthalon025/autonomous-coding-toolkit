@@ -4,6 +4,16 @@ A complete system for running AI coding agents autonomously with quality gates, 
 
 Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Includes skills, agents, scripts, and plugins that implement an end-to-end autonomous coding pipeline.
 
+## Why This Exists
+
+AI coding agents degrade as context grows. By batch 5, they're hallucinating imports, forgetting requirements, and generating slop. This toolkit solves the problem at the architecture level:
+
+- **Fresh context per batch** — each unit of work starts with a clean 200k context window
+- **Quality gates between every batch** — tests, anti-pattern scans, and test-count regression checks prevent cascading errors
+- **Learned prompt selection** — multi-armed bandit picks the best prompt strategy per batch type from past outcomes
+- **Machine-verifiable completion** — every acceptance criterion is a shell command (exit 0 = pass)
+- **Lessons compound** — every production bug becomes an automated check that prevents regressions
+
 ## What This Does
 
 You write a plan. The toolkit executes it batch-by-batch without you at the keyboard:
@@ -287,6 +297,14 @@ Quality gates run automatically between batches. The default gate (`quality-gate
 1. **Lesson check** — scans changed files for known anti-patterns (bare exceptions, async without await, fire-and-forget tasks)
 2. **Test suite** — auto-detects pytest/npm test/make test and runs it
 3. **Memory check** — warns if available memory < 4GB (advisory, never fails)
+
+### Advanced Features
+
+- **Parallel patch sampling** (`--sample N`) — on retry, spawns N candidates with batch-type-aware prompt variants, scores them, picks the winner
+- **Auto-sampling** — automatically enables on retry and CRITICAL batches, with memory guard
+- **Batch-type classification** — categorizes batches (new-file, refactoring, integration, test-only) for intelligent prompt selection
+- **AGENTS.md** — auto-generated per worktree with plan metadata and tool permissions
+- **ast-grep patterns** — 5 structural code patterns (bare-except, empty-catch, async-no-await, retry-loop-no-backoff, hardcoded-localhost)
 
 Customize with `--quality-gate`:
 
