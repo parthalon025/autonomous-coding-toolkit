@@ -158,8 +158,12 @@ Additionally enforced:
 - **Git clean** — all changes committed before next batch
 
 Advanced options:
-- **`--sample N`** — parallel patch sampling: on retry, spawns N candidates with different prompt variants (vanilla, different-approach, minimal-change), scores them, and picks the winner
-- **Per-batch context injection** — assembles targeted context (failure patterns, prior batch summaries, referenced files) within a 6000-char budget and injects into CLAUDE.md before each batch
+- **`--sample N`** — parallel patch sampling: spawns N candidates with batch-type-aware prompt variants, scores them, and picks the winner. Uses multi-armed bandit learning from `logs/sampling-outcomes.json`.
+- **Auto-sampling** — automatically enables on retry (`SAMPLE_ON_RETRY`) and critical batches (`SAMPLE_ON_CRITICAL`), with memory guard to prevent OOM.
+- **Batch-type classification** — `classify_batch_type()` categorizes batches (new-file, refactoring, integration, test-only) for prompt variant selection.
+- **AGENTS.md** — auto-generated per worktree with plan metadata, tool permissions, and batch table for agent awareness.
+- **Per-batch context injection** — assembles targeted context (failure patterns, prior batch summaries, referenced files) within a 6000-char budget and injects into CLAUDE.md before each batch.
+- **ast-grep patterns** — 5 patterns in `scripts/patterns/` (bare-except, empty-catch, async-no-await, retry-loop-no-backoff, hardcoded-localhost).
 
 ## Community Lessons
 
