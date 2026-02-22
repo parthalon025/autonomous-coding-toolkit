@@ -1,0 +1,12 @@
+id: retry-loop-no-backoff
+message: "Retry loop without backoff — add exponential backoff or sleep between retries"
+severity: warning
+language: python
+rule:
+  pattern: |
+    for $_ in range($RETRIES):
+      try:
+        $$$BODY
+      except $EXC:
+        $$$HANDLER
+note: "Tight retry loops without backoff can DDoS external services and hide transient failures"

@@ -1,0 +1,9 @@
+id: hardcoded-localhost
+message: "Hardcoded localhost URL — use environment variable or configuration for host/port"
+severity: warning
+language: python
+rule:
+  any:
+    - pattern: '"http://localhost:$PORT$REST"'
+    - pattern: '"http://127.0.0.1:$PORT$REST"'
+note: "Hardcoded URLs break in containers, CI, and multi-host deployments"
