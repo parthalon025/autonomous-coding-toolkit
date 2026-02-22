@@ -245,15 +245,12 @@ Focus on fixing the root cause. Check test output carefully."
                 echo "WARNING: claude exited with code $claude_exit"
             fi
 
-            # Restore CLAUDE.md to pre-injection state (prevent git-clean failure)
+            # Restore CLAUDE.md to match HEAD (prevent git-clean failure)
+            # The claude subprocess may have committed CLAUDE.md with injected context,
+            # so restoring from backup creates a diff vs HEAD. Use git checkout instead.
             if [[ -n "$batch_context" ]]; then
                 {
-                    local claude_md="$WORKTREE/CLAUDE.md"
-                    if [[ "$_claude_md_existed" == true ]]; then
-                        echo "$_claude_md_backup" > "$claude_md"
-                    else
-                        rm -f "$claude_md"
-                    fi
+                    git -C "$WORKTREE" checkout -- CLAUDE.md 2>/dev/null
                 } || echo "WARNING: Failed to restore CLAUDE.md (non-fatal)" >&2
             fi
 
