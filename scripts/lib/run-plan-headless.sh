@@ -93,13 +93,18 @@ run_mode_headless() {
                 # Save current state so we can reset between candidates
                 (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
 
-                for ((c = 0; c < SAMPLE_COUNT; c++)); do
+                # Classify batch and get type-aware prompt variants
+                local batch_type
+                batch_type=$(classify_batch_type "$PLAN_FILE" "$batch")
+                local variants
+                variants=$(get_prompt_variants "$batch_type" "$WORKTREE/logs/sampling-outcomes.json" "$SAMPLE_COUNT")
+
+                local c=0
+                while IFS= read -r variant_name; do
                     local variant_suffix=""
-                    case $c in
-                        0) variant_suffix="" ;;  # vanilla retry
-                        1) variant_suffix=$'\nIMPORTANT: Take a fundamentally different approach than the previous attempt.' ;;
-                        2) variant_suffix=$'\nIMPORTANT: Make the minimum possible change to pass the quality gate.' ;;
-                    esac
+                    if [[ "$variant_name" != "vanilla" ]]; then
+                        variant_suffix=$'\nIMPORTANT: '"$variant_name"
+                    fi
 
                     local candidate_log="$WORKTREE/logs/batch-${batch}-candidate-${c}.log"
                     candidate_logs+=("$candidate_log")
@@ -137,7 +142,8 @@ run_mode_headless() {
                         # Stash the winning state so we can restore it
                         (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
                     fi
-                done
+                    c=$((c + 1))
+                done <<< "$variants"
 
                 # Pick winner
                 local winner
@@ -153,11 +159,12 @@ run_mode_headless() {
                     mkdir -p "$(dirname "$outcomes_file")"
                     [[ ! -f "$outcomes_file" ]] && echo "[]" > "$outcomes_file"
 
-                    local variant_name="vanilla"
-                    [[ "$winner" -eq 1 ]] && variant_name="different-approach"
-                    [[ "$winner" -eq 2 ]] && variant_name="minimal-change"
+                    # Get the winning variant name from the variants list
+                    local winning_variant
+                    winning_variant=$(echo "$variants" | sed -n "$((winner + 1))p")
+                    winning_variant="${winning_variant:-vanilla}"
 
-                    jq --arg bt "$title" --arg vn "$variant_name" --arg sc "$(echo "$scores" | awk '{print $1}')" \
+                    jq --arg bt "$batch_type" --arg vn "$winning_variant" --arg sc "$(echo "$scores" | awk '{print $1}')" \
                         '. += [{"batch_type": $bt, "prompt_variant": $vn, "won": true, "score": ($sc | tonumber), "timestamp": now | tostring}]' \
                         "$outcomes_file" > "$outcomes_file.tmp" && mv "$outcomes_file.tmp" "$outcomes_file" || true
 
