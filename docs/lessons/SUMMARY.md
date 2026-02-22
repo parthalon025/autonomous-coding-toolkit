@@ -1,6 +1,6 @@
 # Lessons Learned — Summary
 
-55 lessons captured from autonomous coding workflows. Each is a standalone markdown file with YAML frontmatter, grep-detectable patterns (syntactic) or AI-reviewable descriptions (semantic), and concrete fix guidance.
+57 lessons captured from autonomous coding workflows. Each is a standalone markdown file with YAML frontmatter, grep-detectable patterns (syntactic) or AI-reviewable descriptions (semantic), and concrete fix guidance.
 
 ## Quick Reference
 
@@ -61,6 +61,8 @@
 | 0053 | Missing jq -c flag causes string comparison failures in tests | test-anti-patterns | should-fix | syntactic |
 | 0054 | Markdown parser matches headers inside code blocks and test fixtures | silent-failures | should-fix | semantic |
 | 0055 | LLM agents compensate for garbled batch prompts using cross-batch context | integration-boundaries | nice-to-have | semantic |
+| 0056 | grep -c exits 1 on zero matches, breaking || fallback arithmetic | silent-failures | should-fix | syntactic |
+| 0057 | New generated artifacts break git-clean quality gates | integration-boundaries | should-fix | semantic |
 
 ## Root Cause Clusters
 
@@ -68,7 +70,7 @@
 
 Something fails but produces no error, no log, no crash. The system continues with wrong data or missing functionality. You only discover the failure when a downstream consumer produces garbage — hours or days later.
 
-**Lessons:** 0001, 0003, 0005, 0008, 0009, 0010, 0013, 0014, 0019, 0020, 0022, 0026, 0027, 0028, 0029, 0035, 0039, 0054
+**Lessons:** 0001, 0003, 0005, 0008, 0009, 0010, 0013, 0014, 0019, 0020, 0022, 0026, 0027, 0028, 0029, 0035, 0039, 0054, 0056
 
 **Also silent (async/lifecycle):** 0002, 0033, 0034 (async bugs are silent failures with extra steps), 0032, 0036, 0038 (lifecycle bugs cause silent resource leaks)
 
@@ -80,7 +82,7 @@ Something fails but produces no error, no log, no crash. The system continues wi
 
 Each component works alone. The bug hides at the seam between two components — where one produces output and another consumes it. Unit tests pass. Integration fails.
 
-**Lessons:** 0006, 0007, 0011, 0012, 0015, 0016, 0017, 0018, 0021, 0024, 0025, 0030, 0031, 0037, 0041, 0042, 0044, 0045, 0048, 0049, 0050, 0051, 0052, 0055
+**Lessons:** 0006, 0007, 0011, 0012, 0015, 0016, 0017, 0018, 0021, 0024, 0025, 0030, 0031, 0037, 0041, 0042, 0044, 0045, 0048, 0049, 0050, 0051, 0052, 0055, 0057
 
 **Pattern:** Producer and consumer agree on the interface but disagree on semantics — units (0031), schema shape (0015), path depth (0041), or lifecycle timing (0016). Each passes its own tests because each tests against its own assumptions, not the other's reality.
 
@@ -138,3 +140,5 @@ When you see this symptom, check these lessons first.
 | Parser finds more batches/tasks than plan actually has | 0054 |
 | jq assertion fails with multiline vs compact mismatch | 0053 |
 | Agent implements correct work despite garbled prompt | 0055 |
+| Bash arithmetic fails with "syntax error in expression" | 0056 |
+| Quality gate fails with "uncommitted changes" after adding new feature | 0007, 0052, 0057 |
