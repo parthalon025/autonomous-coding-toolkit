@@ -6,6 +6,8 @@
 # Functions:
 #   build_batch_prompt <plan_file> <batch_num> <worktree> <python> <quality_gate_cmd> <prev_test_count>
 #     -> self-contained prompt string for claude -p
+#   generate_agents_md <plan_file> <worktree> <mode>
+#     -> writes AGENTS.md to worktree for agent team awareness
 
 build_batch_prompt() {
     local plan_file="$1"
@@ -85,4 +87,52 @@ Requirements:
 - Update progress.txt with batch summary and commit
 - All ${prev_test_count}+ tests must pass
 PROMPT
+}
+
+# Generate AGENTS.md in the worktree for agent team awareness.
+# Args: <plan_file> <worktree> <mode>
+generate_agents_md() {
+    local plan_file="$1" worktree="$2" mode="${3:-headless}"
+
+    # Source parser if needed
+    type count_batches &>/dev/null || source "$(dirname "${BASH_SOURCE[0]}")/run-plan-parser.sh"
+
+    local total_batches
+    total_batches=$(count_batches "$plan_file")
+
+    local batch_info=""
+    for ((b = 1; b <= total_batches; b++)); do
+        local title
+        title=$(get_batch_title "$plan_file" "$b")
+        [[ -z "$title" ]] && continue
+        batch_info+="| $b | $title |"$'\n'
+    done
+
+    cat > "$worktree/AGENTS.md" << EOF
+# Agent Configuration
+
+**Plan:** $(basename "$plan_file")
+**Mode:** $mode
+**Total:** $total_batches batches
+
+## Tools Allowed
+
+Bash, Read, Write, Edit, Grep, Glob
+
+## Permission Mode
+
+bypassPermissions
+
+## Batches
+
+| # | Title |
+|---|-------|
+${batch_info}
+## Guidelines
+
+- Run quality gate after each batch
+- Commit after passing gate
+- Append discoveries to progress.txt
+- Do not modify files outside your batch scope
+EOF
 }
