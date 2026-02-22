@@ -87,6 +87,31 @@ run_mode_headless() {
             echo ""
             echo "--- Attempt $attempt of $max_attempts ---"
 
+            # Auto-sample on retry if configured
+            if [[ "${SAMPLE_ON_RETRY:-false}" == "true" && "${SAMPLE_COUNT:-0}" -eq 0 && $attempt -ge 2 ]]; then
+                SAMPLE_COUNT="${SAMPLE_DEFAULT_COUNT:-3}"
+                echo "  Auto-enabling sampling ($SAMPLE_COUNT candidates) for retry"
+            fi
+
+            # Auto-sample on critical batches
+            if [[ "${SAMPLE_ON_CRITICAL:-false}" == "true" && "${SAMPLE_COUNT:-0}" -eq 0 && $attempt -eq 1 ]]; then
+                if is_critical_batch "$PLAN_FILE" "$batch"; then
+                    SAMPLE_COUNT="${SAMPLE_DEFAULT_COUNT:-3}"
+                    echo "  Auto-enabling sampling ($SAMPLE_COUNT candidates) for critical batch"
+                fi
+            fi
+
+            # Memory guard for sampling
+            if [[ "${SAMPLE_COUNT:-0}" -gt 0 ]]; then
+                local avail_gb
+                avail_gb=$(free -g 2>/dev/null | awk '/Mem:/{print $7}' || echo "0")
+                local needed=$((SAMPLE_COUNT * ${SAMPLE_MIN_MEMORY_PER_GB:-4}))
+                if [[ "$avail_gb" -lt "$needed" ]]; then
+                    echo "  WARNING: Not enough memory for sampling (${avail_gb}G < ${needed}G needed). Falling back to single attempt."
+                    SAMPLE_COUNT=0
+                fi
+            fi
+
             # If sampling enabled and this is a retry, use parallel candidates
             if [[ "${SAMPLE_COUNT:-0}" -gt 0 && $attempt -ge 2 ]]; then
                 echo "  Sampling $SAMPLE_COUNT candidates for batch $batch..."
