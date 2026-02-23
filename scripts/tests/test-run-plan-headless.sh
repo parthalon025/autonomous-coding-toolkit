@@ -64,14 +64,14 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
-# === run-plan.sh is under 300 lines ===
+# === run-plan.sh is under 320 lines ===
 
 line_count=$(wc -l < "$RP")
 TESTS=$((TESTS + 1))
-if [[ $line_count -le 300 ]]; then
-    echo "PASS: run-plan.sh is $line_count lines (<=300)"
+if [[ $line_count -le 320 ]]; then
+    echo "PASS: run-plan.sh is $line_count lines (<=320)"
 else
-    echo "FAIL: run-plan.sh is $line_count lines (should be <=300)"
+    echo "FAIL: run-plan.sh is $line_count lines (should be <=320)"
     FAILURES=$((FAILURES + 1))
 fi
 

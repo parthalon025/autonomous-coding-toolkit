@@ -63,6 +63,7 @@ SAMPLE_COUNT=0  # 0 = disabled
 NOTIFY=false
 VERIFY=false
 RESUME=false
+SKIP_PLAN_QUALITY=false
 MAX_BUDGET=""
 
 # --- Usage ---
@@ -89,6 +90,7 @@ Options:
   --no-sample                          Disable sampling (default)
   --notify                             Send Telegram notifications
   --verify                             Run verification after all batches
+  --skip-plan-quality                  Skip plan quality scorecard check
   --resume                             Resume from saved state
   --max-budget <dollars>               Budget cap (reserved for future use)
   -h, --help                           Show this help message
@@ -153,6 +155,9 @@ parse_args() {
                 ;;
             --verify)
                 VERIFY=true; shift
+                ;;
+            --skip-plan-quality)
+                SKIP_PLAN_QUALITY=true; shift
                 ;;
             --resume)
                 RESUME=true; shift
@@ -276,6 +281,18 @@ main() {
     parse_args "$@"
     validate_args
     print_banner
+
+    # Plan quality gate (skip on resume or explicit flag)
+    if [[ "$SKIP_PLAN_QUALITY" != true && "$RESUME" != true ]]; then
+        echo ""
+        echo "Running plan quality check..."
+        if ! bash "$SCRIPT_DIR/validate-plan-quality.sh" "$PLAN_FILE" --min-score 60; then
+            echo ""
+            echo "Plan quality below threshold. Use --skip-plan-quality to override."
+            exit 1
+        fi
+        echo ""
+    fi
 
     case "$MODE" in
         headless)
