@@ -5,7 +5,7 @@
 # generates ast-grep YAML rule files in the output directory.
 # Syntactic patterns are skipped (grep handles them via lesson-check.sh).
 #
-# Usage: generate-ast-rules.sh --lessons-dir <dir> --output-dir <dir> [--list]
+# Usage: generate-ast-rules.sh --lessons-dir <dir> [--output-dir <dir>] [--list]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
         --list) LIST_ONLY=true; shift ;;
         -h|--help)
-            echo "Usage: generate-ast-rules.sh --lessons-dir <dir> --output-dir <dir> [--list]"
+            echo "Usage: generate-ast-rules.sh --lessons-dir <dir> [--output-dir <dir>] [--list]"
             exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
@@ -91,6 +91,6 @@ if [[ "$LIST_ONLY" == true ]]; then
     echo ""
     echo "Summary: $generated convertible, $skipped_syntactic syntactic (grep), $skipped_unconvertible unsupported language"
 else
-    echo "Generated $generated ast-grep rules in ${OUTPUT_DIR:-<none>}"
+    echo "Generated $generated ast-grep rules in $OUTPUT_DIR"
     echo "Skipped: $skipped_syntactic syntactic (grep handles), $skipped_unconvertible unsupported language"
 fi

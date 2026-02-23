@@ -11,23 +11,9 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/projects/project-a"
 mkdir -p "$WORK/projects/project-b"
 
-# Each project's Makefile writes its own directory name to a shared log
-cat > "$WORK/projects/project-a/Makefile" << 'EOF'
-test:
-	@pwd >> /tmp/batch-test-cwd-log.$$
-	@echo "project-a tests passed"
-EOF
-
-cat > "$WORK/projects/project-b/Makefile" << 'EOF'
-test:
-	@pwd >> /tmp/batch-test-cwd-log.$$
-	@echo "project-b tests passed"
-EOF
-
-# Use a unique log file
+# Use a unique log file for tracking which directory each project runs from
 LOG_FILE="$WORK/cwd-log"
 
-# Rewrite Makefiles to use our specific log path
 cat > "$WORK/projects/project-a/Makefile" << EOF
 test:
 	@pwd >> $LOG_FILE
