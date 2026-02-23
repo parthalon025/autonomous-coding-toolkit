@@ -101,9 +101,9 @@ assert_eq "strip_json_fences: plain JSON unchanged" '{"key":"value"}' "$val"
 assert_exit "check_memory_available: runs without error" 0 \
     check_memory_available 0
 
-# Test MB-based threshold: threshold 0 should always pass
-assert_exit "check_memory_available: threshold 0 always passes" 0 \
-    check_memory_available 0
+# Test 1GB threshold: should also always pass on any real system
+assert_exit "check_memory_available: threshold 1 always passes" 0 \
+    check_memory_available 1
 
 # Test that check_memory_available uses MB internally (not GB)
 # Verify it doesn't use free -g (which truncates)
@@ -119,15 +119,15 @@ fi
 # Create a wrapper that hides the real free command
 _test_no_free() {
     (
-        # Override PATH to exclude real free, use a dir with a fake free that fails
+        # Prepend fake bin to PATH so awk is still available, but free outputs nothing
         local fake_bin
         fake_bin=$(mktemp -d)
         cat > "$fake_bin/free" <<'EOF'
 #!/bin/bash
-exit 1
+# Output nothing — simulates unavailability without breaking awk in PATH
 EOF
         chmod +x "$fake_bin/free"
-        PATH="$fake_bin" check_memory_available 4
+        PATH="$fake_bin:$PATH" check_memory_available 4
     )
 }
 assert_exit "check_memory_available: returns 2 when free unavailable" 2 \

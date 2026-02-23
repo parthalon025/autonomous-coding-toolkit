@@ -6,7 +6,7 @@
 # Functions:
 #   detect_project_type <dir>              -> "python"|"node"|"make"|"bash"|"unknown"
 #   strip_json_fences                      -> stdin filter: remove ```json wrappers
-#   check_memory_available <threshold_gb>  -> exit 0 if available >= threshold, 1 otherwise
+#   check_memory_available <threshold_gb>  -> exit 0 if available >= threshold, 1 if low, 2 if unknown
 #   require_command <cmd> [install_hint]   -> exit 1 with message if cmd not found
 
 detect_project_type() {
