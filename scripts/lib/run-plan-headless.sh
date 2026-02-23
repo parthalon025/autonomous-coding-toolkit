@@ -112,12 +112,20 @@ run_mode_headless() {
 
             # Memory guard for sampling
             if [[ "${SAMPLE_COUNT:-0}" -gt 0 ]]; then
-                local avail_gb
-                avail_gb=$(free -g 2>/dev/null | awk '/Mem:/{print $7}' || echo "0")
-                local needed=$((SAMPLE_COUNT * ${SAMPLE_MIN_MEMORY_PER_GB:-4}))
-                if [[ "$avail_gb" -lt "$needed" ]]; then
-                    echo "  WARNING: Not enough memory for sampling (${avail_gb}G < ${needed}G needed). Falling back to single attempt."
+                local avail_mb
+                avail_mb=$(free -m 2>/dev/null | awk '/Mem:/{print $7}')
+                if [[ -z "$avail_mb" ]]; then
+                    echo "  WARNING: Cannot determine available memory. Falling back to single attempt."
                     SAMPLE_COUNT=0
+                else
+                    local needed_mb=$(( SAMPLE_COUNT * ${SAMPLE_MIN_MEMORY_PER_GB:-4} * 1024 ))
+                    if [[ "$avail_mb" -lt "$needed_mb" ]]; then
+                        local avail_display needed_display
+                        avail_display=$(awk "BEGIN {printf \"%.1f\", $avail_mb / 1024}")
+                        needed_display=$(( SAMPLE_COUNT * ${SAMPLE_MIN_MEMORY_PER_GB:-4} ))
+                        echo "  WARNING: Not enough memory for sampling (${avail_display}G < ${needed_display}G needed). Falling back to single attempt."
+                        SAMPLE_COUNT=0
+                    fi
                 fi
             fi
 

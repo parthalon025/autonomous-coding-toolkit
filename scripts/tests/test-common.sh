@@ -101,6 +101,55 @@ assert_eq "strip_json_fences: plain JSON unchanged" '{"key":"value"}' "$val"
 assert_exit "check_memory_available: runs without error" 0 \
     check_memory_available 0
 
+# Test MB-based threshold: threshold 0 should always pass
+assert_exit "check_memory_available: threshold 0 always passes" 0 \
+    check_memory_available 0
+
+# Test that check_memory_available uses MB internally (not GB)
+# Verify it doesn't use free -g (which truncates)
+TESTS=$((TESTS + 1))
+if grep -q 'free -g' "$SCRIPT_DIR/../lib/common.sh"; then
+    echo "FAIL: check_memory_available should use free -m, not free -g"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: check_memory_available uses free -m (no free -g in common.sh)"
+fi
+
+# Test that check_memory_available returns exit 2 when free is unavailable
+# Create a wrapper that hides the real free command
+_test_no_free() {
+    (
+        # Override PATH to exclude real free, use a dir with a fake free that fails
+        local fake_bin
+        fake_bin=$(mktemp -d)
+        cat > "$fake_bin/free" <<'EOF'
+#!/bin/bash
+exit 1
+EOF
+        chmod +x "$fake_bin/free"
+        PATH="$fake_bin" check_memory_available 4
+    )
+}
+assert_exit "check_memory_available: returns 2 when free unavailable" 2 \
+    _test_no_free
+
+# === detect_project_type nullglob safety (#24) ===
+
+# Test that bash detection works even with nullglob set
+mkdir -p "$WORK/bash-nullglob/scripts/tests"
+touch "$WORK/bash-nullglob/scripts/tests/test-bar.sh"
+val=$(shopt -s nullglob; detect_project_type "$WORK/bash-nullglob")
+assert_eq "detect_project_type: bash detection works with nullglob set" "bash" "$val"
+
+# Test that compgen -G is used instead of ls for glob detection
+TESTS=$((TESTS + 1))
+if grep -q 'compgen -G' "$SCRIPT_DIR/../lib/common.sh"; then
+    echo "PASS: detect_project_type uses compgen -G (nullglob-safe)"
+else
+    echo "FAIL: detect_project_type should use compgen -G, not ls"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # === require_command tests ===
 
 assert_exit "require_command: bash exists" 0 \

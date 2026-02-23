@@ -17,7 +17,7 @@ detect_project_type() {
         echo "node"
     elif [[ -f "$dir/Makefile" ]]; then
         echo "make"
-    elif [[ -x "$dir/scripts/tests/run-all-tests.sh" ]] || ls "$dir"/scripts/tests/test-*.sh >/dev/null 2>&1; then
+    elif [[ -x "$dir/scripts/tests/run-all-tests.sh" ]] || compgen -G "$dir/scripts/tests/test-*.sh" >/dev/null 2>&1; then
         echo "bash"
     else
         echo "unknown"
@@ -30,12 +30,20 @@ strip_json_fences() {
 
 check_memory_available() {
     local threshold_gb="${1:-4}"
-    local available_gb
-    available_gb=$(free -g 2>/dev/null | awk '/Mem:/{print $7}' || echo "999")
-    if [[ "$available_gb" -ge "$threshold_gb" ]]; then
+    local threshold_mb=$((threshold_gb * 1024))
+    local available_mb
+    available_mb=$(free -m 2>/dev/null | awk '/Mem:/{print $7}')
+    if [[ -z "$available_mb" ]]; then
+        # free command unavailable or produced no output — return -1 (unknown)
+        echo "WARNING: Cannot determine available memory (free command unavailable)" >&2
+        return 2
+    fi
+    if [[ "$available_mb" -ge "$threshold_mb" ]]; then
         return 0
     else
-        echo "WARNING: Low memory (${available_gb}G available, need ${threshold_gb}G)" >&2
+        local available_display
+        available_display=$(awk "BEGIN {printf \"%.1f\", $available_mb / 1024}")
+        echo "WARNING: Low memory (${available_display}G available, need ${threshold_gb}G)" >&2
         return 1
     fi
 }

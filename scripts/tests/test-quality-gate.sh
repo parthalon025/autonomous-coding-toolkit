@@ -154,15 +154,39 @@ assert_contains "--quick --with-license keeps license" "License Check" "$output"
 # === Memory check output ===
 
 output=$(bash "$QG" --project-root "$WORK/py-proj" 2>&1) || true
-# Should contain either "Memory OK" or "WARNING: Low memory"
+# Should contain either "Memory OK" or "WARNING: Low memory" or "skipped"
 TESTS=$((TESTS + 1))
-if echo "$output" | grep -qE "(Memory OK|WARNING.*memory|WARNING.*Consider)"; then
+if echo "$output" | grep -qE "(Memory OK|WARNING.*memory|WARNING.*Consider|Memory check skipped)"; then
     echo "PASS: memory check runs"
 else
     echo "FAIL: memory check runs"
     echo "  expected memory check output"
     echo "  got: $output"
     FAILURES=$((FAILURES + 1))
+fi
+
+# Memory display should use decimal GB (e.g., "3.9G") not truncated integer
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qE 'Memory OK \([0-9]+\.[0-9]+G'; then
+    echo "PASS: memory display uses decimal GB (MB-based, not truncated)"
+else
+    # On systems where free is unavailable, this is expected to skip
+    if echo "$output" | grep -qF "Memory check skipped"; then
+        echo "PASS: memory display skipped (free unavailable — acceptable)"
+    else
+        echo "FAIL: memory display should show decimal GB (e.g., 3.9G)"
+        echo "  got: $(echo "$output" | grep -i memory)"
+        FAILURES=$((FAILURES + 1))
+    fi
+fi
+
+# quality-gate.sh should not use free -g (only free -m via common.sh)
+TESTS=$((TESTS + 1))
+if grep -q 'free -g' "$QG"; then
+    echo "FAIL: quality-gate.sh should not use free -g (use free -m)"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: quality-gate.sh does not use free -g"
 fi
 
 # === ast-grep section present in full mode (advisory, doesn't fail gate) ===

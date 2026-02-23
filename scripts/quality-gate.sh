@@ -218,9 +218,14 @@ fi
 # === Check 5: Memory warning (advisory only) ===
 echo ""
 echo "=== Quality Gate: Memory Check ==="
-if check_memory_available 4; then
-    available_gb=$(free -g | awk '/Mem:/{print $7}')
-    echo "Memory OK (${available_gb}G available)"
+_mem_exit=0
+check_memory_available 4 || _mem_exit=$?
+if [[ $_mem_exit -eq 0 ]]; then
+    available_mb=$(free -m 2>/dev/null | awk '/Mem:/{print $7}')
+    available_display=$(awk "BEGIN {printf \"%.1f\", ${available_mb:-0} / 1024}")
+    echo "Memory OK (${available_display}G available)"
+elif [[ $_mem_exit -eq 2 ]]; then
+    echo "WARNING: Memory check skipped (cannot determine available memory)"
 else
     echo "WARNING: Consider -n 0 for pytest"
 fi
