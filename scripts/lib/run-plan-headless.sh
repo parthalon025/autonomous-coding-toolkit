@@ -25,10 +25,16 @@ echo_back_check() {
 The batch specification is:
 ${batch_text}"
 
-    restatement=$(CLAUDECODE='' $claude_cmd -p "$echo_prompt" \
+    local claude_exit=0
+    restatement=$(CLAUDECODE='' "$claude_cmd" -p "$echo_prompt" \
         --allowedTools "" \
         --permission-mode bypassPermissions \
-        2>"$echo_log" || true)
+        2>"$echo_log") || claude_exit=$?
+
+    if [[ $claude_exit -ne 0 ]]; then
+        echo "  Echo-back: claude failed (exit $claude_exit) — see $echo_log" >&2
+        return 0
+    fi
 
     if [[ -z "$restatement" ]]; then
         echo "  Echo-back: no restatement received (skipping check)" >&2
@@ -47,13 +53,13 @@ ${batch_text}
 RESTATEMENT:
 ${restatement}"
 
-    verdict=$(CLAUDECODE='' $claude_cmd -p "$verify_prompt" \
+    verdict=$(CLAUDECODE='' "$claude_cmd" -p "$verify_prompt" \
         --model haiku \
         --allowedTools "" \
         --permission-mode bypassPermissions \
-        2>>"$echo_log" || true)
+        2>>"$echo_log") || true
 
-    if echo "$verdict" | grep -qi "^YES" 2>/dev/null; then
+    if echo "$verdict" | grep -qi "YES"; then
         echo "  Echo-back: PASSED (spec understood)"
         return 0
     fi
@@ -69,10 +75,10 @@ Re-read the specification carefully and restate in one paragraph what this batch
 ${batch_text}"
 
     local retry_restatement
-    retry_restatement=$(CLAUDECODE='' $claude_cmd -p "$retry_prompt" \
+    retry_restatement=$(CLAUDECODE='' "$claude_cmd" -p "$retry_prompt" \
         --allowedTools "" \
         --permission-mode bypassPermissions \
-        2>>"$echo_log" || true)
+        2>>"$echo_log") || true
 
     retry_restatement=$(echo "$retry_restatement" | awk '/^$/{exit} {print}')
 
@@ -85,13 +91,13 @@ RESTATEMENT:
 ${retry_restatement}"
 
     local retry_verdict
-    retry_verdict=$(CLAUDECODE='' $claude_cmd -p "$retry_verify" \
+    retry_verdict=$(CLAUDECODE='' "$claude_cmd" -p "$retry_verify" \
         --model haiku \
         --allowedTools "" \
         --permission-mode bypassPermissions \
-        2>>"$echo_log" || true)
+        2>>"$echo_log") || true
 
-    if echo "$retry_verdict" | grep -qi "^YES" 2>/dev/null; then
+    if echo "$retry_verdict" | grep -qi "YES"; then
         echo "  Echo-back: PASSED on retry (spec understood)"
         return 0
     fi

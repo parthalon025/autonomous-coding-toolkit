@@ -70,18 +70,30 @@ if [[ -z "$PLAN_FILE" ]]; then
     exit 1
 fi
 
+if ! [[ "$MIN_SCORE" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: --min-score must be a number, got: $MIN_SCORE" >&2
+    exit 1
+fi
+
 if [[ ! -f "$PLAN_FILE" ]]; then
     echo "ERROR: Plan file not found: $PLAN_FILE" >&2
     exit 1
 fi
 
 # --- Helpers ---
-# Safe grep -c that works with pipefail (avoids the 0\n0 double-output bug)
+# Safe grep -c that works with pipefail (avoids the 0\n0 double-output bug).
+# Reads from stdin. Distinguishes "no matches" (exit 1) from "grep error" (exit 2+).
 _count_matches() {
     local pattern="$1"
-    local result
-    result=$(grep -ciE "$pattern" 2>/dev/null || true)
-    echo "${result:-0}"
+    local result exit_code=0
+    result=$(grep -ciE "$pattern" 2>&1) || exit_code=$?
+    if [[ $exit_code -le 1 ]]; then
+        # 0 = matches found, 1 = no matches (both normal)
+        echo "${result:-0}"
+    else
+        echo "WARNING: grep failed (exit $exit_code) for pattern: $pattern" >&2
+        echo "0"
+    fi
 }
 
 # --- Scoring functions ---
@@ -163,11 +175,10 @@ score_single_outcome() {
     for ((b = 1; b <= total_batches; b++)); do
         local text
         text=$(get_batch_text "$plan_file" "$b")
-        # Detect mixed types: creation + refactoring + testing in same batch
-        local has_create has_refactor has_test
+        # Detect mixed types: creation + refactoring in same batch
+        local has_create has_refactor
         has_create=$(echo "$text" | _count_matches '(create|add|new|implement)')
         has_refactor=$(echo "$text" | _count_matches '(refactor|rename|move|extract|reorganize)')
-        has_test=$(echo "$text" | _count_matches '(test|spec|verify|assert)')
 
         # Mixed = has significant refactoring alongside significant creation
         if [[ "$has_create" -ge 2 && "$has_refactor" -ge 2 ]]; then
@@ -278,10 +289,10 @@ score_tdd_structure() {
     for ((b = 1; b <= total_batches; b++)); do
         local text
         text=$(get_batch_text "$plan_file" "$b")
-        # Look for TDD patterns: "write test" before "implement", or test file before source
+        # Look for TDD patterns: explicit TDD language or test file references before source
         if echo "$text" | grep -qiE '(write.*test.*before|test.*first|failing test|red.green|TDD)' 2>/dev/null; then
             tdd_batches=$((tdd_batches + 1))
-        elif echo "$text" | grep -qiE 'test.*\.py.*\n.*create.*\.py' 2>/dev/null; then
+        elif echo "$text" | grep -qiE 'Test:.*test.*\.(py|js|ts|sh)' 2>/dev/null; then
             tdd_batches=$((tdd_batches + 1))
         fi
     done
@@ -310,9 +321,10 @@ s_tdd=$(score_tdd_structure "$PLAN_FILE")
 total=$(( (s_granularity * 15 + s_spec * 20 + s_single * 10 + s_deps * 10 + s_paths * 15 + s_criteria * 15 + s_batch_size * 10 + s_tdd * 5) / 100 ))
 
 if [[ "$JSON_OUTPUT" == true ]]; then
+    escaped_plan=$(printf '%s' "$PLAN_FILE" | jq -Rs '.')
     cat <<JSONEOF
 {
-  "plan_file": "$PLAN_FILE",
+  "plan_file": $escaped_plan,
   "total_batches": $total_batches,
   "score": $total,
   "min_score": $MIN_SCORE,

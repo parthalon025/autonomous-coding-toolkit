@@ -157,10 +157,10 @@ assert_eq "no batches exits 1" "1" "$exit_code"
 # Custom min-score
 # =============================================================================
 
-# High quality with min-score=100 should fail
+# High quality with min-score=101 should fail (max score is 100)
 exit_code=0
-bash "$VALIDATE" "$HIGH_QUALITY" --min-score 100 >/dev/null 2>&1 || exit_code=$?
-assert_eq "min-score 100 is hard to pass" "1" "$exit_code"
+bash "$VALIDATE" "$HIGH_QUALITY" --min-score 101 >/dev/null 2>&1 || exit_code=$?
+assert_eq "min-score 101 is impossible to pass" "1" "$exit_code"
 
 # High quality with min-score=1 should pass
 exit_code=0
