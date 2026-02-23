@@ -5,8 +5,9 @@ severity: should-fix
 languages: [all]
 category: test-anti-patterns
 pattern:
-  type: semantic
-  description: "A test that reaches the expected outcome through a different code path than intended — usually because the test setup has unintended side effects that mask the real behavior"
+  type: syntactic
+  regex: "\\bPATH=\"[^\":]*\""
+  description: "PATH assignment without colon (no prepend/append) — replaces entire PATH, removing all other commands from the environment"
 fix: "Verify the test fails when the fix is reverted. Ensure test setup affects only the variable under test, not its dependencies."
 example:
   bad: |
