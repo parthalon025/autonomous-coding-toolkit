@@ -82,7 +82,7 @@ parse_lesson() {
     pattern_regex="${pattern_regex//\\d/[0-9]}"
     pattern_regex="${pattern_regex//\\s/[[:space:]]}"
     pattern_regex="${pattern_regex//\\w/[_[:alnum:]]}"
-    pattern_regex="${pattern_regex//\\b/\\b}"  # ERE \b is a GNU extension, widely available
+    pattern_regex="${pattern_regex//\\b/\\b}"  # no-op: \b passes through unchanged; GNU grep -E supports \b as word boundary (not BSD/macOS)
 
     return 0
 }
