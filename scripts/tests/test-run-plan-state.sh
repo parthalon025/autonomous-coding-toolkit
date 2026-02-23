@@ -155,6 +155,36 @@ assert_eq "complete_batch: duration defaults to 0" "0" "$duration"
 val=$(jq -r '.durations | type' "$WORK3/.run-plan-state.json")
 assert_eq "init_state: has durations object" "object" "$val"
 
+# --- Test: complete_batch with non-numeric batch_num ('final') ---
+WORK4=$(mktemp -d)
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4"' EXIT
+init_state "$WORK4" "plan.md" "headless"
+complete_batch "$WORK4" 1 42
+complete_batch "$WORK4" "final" 50
+
+val=$(jq -r '.test_counts["final"]' "$WORK4/.run-plan-state.json")
+assert_eq "complete_batch: non-numeric batch 'final' stores test count" "50" "$val"
+
+val=$(jq -r '.durations["final"]' "$WORK4/.run-plan-state.json")
+assert_eq "complete_batch: non-numeric batch 'final' stores duration" "0" "$val"
+
+val=$(jq -r '.completed_batches | last' "$WORK4/.run-plan-state.json")
+assert_eq "complete_batch: non-numeric batch 'final' in completed_batches" "final" "$val"
+
+# Numeric batches still work after non-numeric
+val=$(jq -r '.test_counts["1"]' "$WORK4/.run-plan-state.json")
+assert_eq "complete_batch: numeric batch still intact after non-numeric" "42" "$val"
+
+# --- Test: get_previous_test_count returns -1 when key missing ---
+WORK5=$(mktemp -d)
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5"' EXIT
+init_state "$WORK5" "plan.md" "headless"
+# Manually add a batch to completed_batches without a corresponding test_count entry
+jq '.completed_batches += [1]' "$WORK5/.run-plan-state.json" > "$WORK5/.tmp.json" && mv "$WORK5/.tmp.json" "$WORK5/.run-plan-state.json"
+
+val=$(get_previous_test_count "$WORK5")
+assert_eq "get_previous_test_count: returns -1 when key missing" "-1" "$val"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

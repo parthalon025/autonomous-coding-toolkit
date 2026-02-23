@@ -8,7 +8,7 @@
 #   init_state <worktree> <plan_file> <mode>           -> create state file
 #   read_state_field <worktree> <field>                 -> read top-level field
 #   complete_batch <worktree> <batch_num> <test_count> [duration]  -> mark batch done
-#   get_previous_test_count <worktree>                  -> last completed batch's test count (0 if none)
+#   get_previous_test_count <worktree>                  -> last completed batch's test count (0 if none, -1 if missing)
 #   set_quality_gate <worktree> <batch_num> <passed> <test_count> -> record quality gate result
 
 _state_file() {
@@ -51,16 +51,29 @@ complete_batch() {
     sf=$(_state_file "$worktree")
     tmp=$(mktemp)
 
-    jq \
-        --argjson batch "$batch_num" \
-        --argjson tc "$test_count" \
-        --argjson dur "$duration" \
-        '
-        .completed_batches += [$batch] |
-        .current_batch = ($batch + 1) |
-        .test_counts[($batch | tostring)] = $tc |
-        .durations[($batch | tostring)] = $dur
-        ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+    # batch_num may be non-numeric (e.g. 'final'), so use --arg and convert in jq
+    if [[ "$batch_num" =~ ^[0-9]+$ ]]; then
+        jq \
+            --argjson batch "$batch_num" \
+            --argjson tc "$test_count" \
+            --argjson dur "$duration" \
+            '
+            .completed_batches += [$batch] |
+            .current_batch = ($batch + 1) |
+            .test_counts[($batch | tostring)] = $tc |
+            .durations[($batch | tostring)] = $dur
+            ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+    else
+        jq \
+            --arg batch "$batch_num" \
+            --argjson tc "$test_count" \
+            --argjson dur "$duration" \
+            '
+            .completed_batches += [$batch] |
+            .test_counts[$batch] = $tc |
+            .durations[$batch] = $dur
+            ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+    fi
 }
 
 get_previous_test_count() {
@@ -70,7 +83,7 @@ get_previous_test_count() {
 
     jq -r '
         if (.completed_batches | length) == 0 then "0"
-        else .test_counts[(.completed_batches | last | tostring)] | tostring
+        else .test_counts[(.completed_batches | last | tostring)] // -1 | tostring
         end
     ' "$sf"
 }
