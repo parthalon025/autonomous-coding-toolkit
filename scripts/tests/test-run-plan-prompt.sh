@@ -140,10 +140,12 @@ assert_contains "has </prior_context> close tag" "</prior_context>" "$prompt"
 assert_contains "has <requirements> open tag" "<requirements>" "$prompt"
 assert_contains "has </requirements> close tag" "</requirements>" "$prompt"
 
-# --- Section ordering: batch_tasks before requirements (Lost in the Middle) ---
-assert_before "batch_tasks before requirements" "<batch_tasks>" "<requirements>" "$prompt"
+# --- Section ordering ---
+# With prefix/suffix split: requirements in prefix (top), batch_tasks + prior_context in suffix
+# Within suffix: batch_tasks before prior_context (task at top = highest priority)
 assert_before "batch_tasks before prior_context" "<batch_tasks>" "<prior_context>" "$prompt"
-assert_before "prior_context before requirements" "<prior_context>" "<requirements>" "$prompt"
+# Requirements now in prefix (stable, cached) — appears before batch_tasks
+assert_before "requirements before batch_tasks (prefix/suffix split)" "<requirements>" "<batch_tasks>" "$prompt"
 
 # =============================================================================
 # Batch 2 tests
