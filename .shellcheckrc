@@ -1,0 +1,4 @@
+# Enable all optional checks
+enable=all
+# Follow sourced files
+external-sources=true
