@@ -70,6 +70,39 @@ For each lesson with `pattern.type: semantic`:
 
 **CRITICAL: Do not hallucinate findings.** Only report what grep + read confirms. If uncertain, skip the finding.
 
+## Step 4b: Hardcoded Scans
+
+These scans are always run regardless of lesson files, because they catch patterns that lesson files may not cover.
+
+**Scan 3f — .venv/bin/pip usage (Lesson #51):**
+```
+pattern: \.venv/bin/pip\s
+glob: **/*.{py,sh,md}
+```
+Direct `.venv/bin/pip` invocation is broken when Homebrew Python is on PATH — it resolves to the wrong Python. Use `.venv/bin/python -m pip` instead. Flag as **Should-Fix**.
+
+---
+
+## Scan Group 7: Plan Quality (Lessons #60-66)
+
+**What to find:** Implementation plans that violate research-derived quality patterns.
+
+**Scan 7a — plans without verification steps (Lesson #60):**
+```
+pattern: ^### (Task|Step) \d+
+glob: docs/plans/*.md
+```
+For each plan file, check that at least 50% of tasks contain a verification step (a line with "Run:", "Expected:", "Verify:", or a code block with a command). Plans without verification steps have 3x higher failure rates. Flag plans where <50% of tasks have verification as **Should-Fix**.
+
+**Scan 7b — plans without explicit file paths (Lesson #61):**
+```
+pattern: ^### (Task|Step) \d+
+glob: docs/plans/*.md
+```
+For each task in a plan, check that it references at least one specific file path (containing `/` or ending in a file extension). Tasks without explicit file paths lead to spec misunderstanding. Flag as **Nice-to-Have**.
+
+---
+
 ## Step 5: Report
 
 ```
