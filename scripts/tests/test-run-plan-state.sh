@@ -185,6 +185,32 @@ jq '.completed_batches += [1]' "$WORK5/.run-plan-state.json" > "$WORK5/.tmp.json
 val=$(get_previous_test_count "$WORK5")
 assert_eq "get_previous_test_count: returns -1 when key missing" "-1" "$val"
 
+# --- Test: set_quality_gate with non-numeric batch_num ('final') ---
+WORK6=$(mktemp -d)
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5" "$WORK6"' EXIT
+init_state "$WORK6" "plan.md" "headless"
+complete_batch "$WORK6" 1 42
+set_quality_gate "$WORK6" "final" "true" 99
+
+val=$(jq -r '.last_quality_gate.batch' "$WORK6/.run-plan-state.json")
+assert_eq "set_quality_gate: non-numeric batch 'final' stored" "final" "$val"
+
+val=$(jq -r '.last_quality_gate.passed' "$WORK6/.run-plan-state.json")
+assert_eq "set_quality_gate: non-numeric batch passed=true" "true" "$val"
+
+val=$(jq -r '.last_quality_gate.test_count' "$WORK6/.run-plan-state.json")
+assert_eq "set_quality_gate: non-numeric batch test_count" "99" "$val"
+
+# --- Test: end-to-end complete_batch 'final' then get_previous_test_count ---
+WORK7=$(mktemp -d)
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5" "$WORK6" "$WORK7"' EXIT
+init_state "$WORK7" "plan.md" "headless"
+complete_batch "$WORK7" 1 42
+complete_batch "$WORK7" "final" 99
+
+val=$(get_previous_test_count "$WORK7")
+assert_eq "e2e: complete_batch 'final' then get_previous_test_count returns 99" "99" "$val"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

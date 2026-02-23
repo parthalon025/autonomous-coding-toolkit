@@ -51,7 +51,10 @@ complete_batch() {
     sf=$(_state_file "$worktree")
     tmp=$(mktemp)
 
-    # batch_num may be non-numeric (e.g. 'final'), so use --arg and convert in jq
+    # batch_num may be non-numeric (e.g. 'final'), so use --arg and convert in jq.
+    # current_batch is only meaningful for numeric batch sequences — it tracks
+    # the next expected numeric batch. Non-numeric batches (like 'final') are
+    # recorded in completed_batches and test_counts but do not advance current_batch.
     if [[ "$batch_num" =~ ^[0-9]+$ ]]; then
         jq \
             --argjson batch "$batch_num" \
@@ -83,7 +86,7 @@ get_previous_test_count() {
 
     jq -r '
         if (.completed_batches | length) == 0 then "0"
-        else .test_counts[(.completed_batches | last | tostring)] // -1 | tostring
+        else (.test_counts[(.completed_batches | last | tostring)] // -1) | tostring
         end
     ' "$sf"
 }
@@ -95,17 +98,34 @@ set_quality_gate() {
     tmp=$(mktemp)
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-    jq \
-        --argjson batch "$batch_num" \
-        --argjson passed "$passed" \
-        --argjson tc "$test_count" \
-        --arg ts "$now" \
-        '
-        .last_quality_gate = {
-            batch: $batch,
-            passed: $passed,
-            test_count: $tc,
-            timestamp: $ts
-        }
-        ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+    # batch_num may be non-numeric (e.g. 'final'), so use --arg and convert in jq
+    if [[ "$batch_num" =~ ^[0-9]+$ ]]; then
+        jq \
+            --argjson batch "$batch_num" \
+            --argjson passed "$passed" \
+            --argjson tc "$test_count" \
+            --arg ts "$now" \
+            '
+            .last_quality_gate = {
+                batch: $batch,
+                passed: $passed,
+                test_count: $tc,
+                timestamp: $ts
+            }
+            ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+    else
+        jq \
+            --arg batch "$batch_num" \
+            --argjson passed "$passed" \
+            --argjson tc "$test_count" \
+            --arg ts "$now" \
+            '
+            .last_quality_gate = {
+                batch: $batch,
+                passed: $passed,
+                test_count: $tc,
+                timestamp: $ts
+            }
+            ' "$sf" > "$tmp" && mv "$tmp" "$sf"
+    fi
 }
