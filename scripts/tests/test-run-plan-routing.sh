@@ -138,6 +138,37 @@ PLAN
 model=$(classify_batch_model "$WORK/verify-plan.md" 1)
 assert_eq "model: batch with only Run commands = haiku" "haiku" "$model"
 
+# === jq timeout guard (bug #15) ===
+# Verify the jq call in compute_parallelism_score is wrapped with timeout
+TESTS=$((TESTS + 1))
+if grep -q 'timeout 30 jq' "$SCRIPT_DIR/../lib/run-plan-routing.sh"; then
+    echo "PASS: jq calls wrapped with timeout 30"
+else
+    echo "FAIL: jq calls should be wrapped with timeout 30"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Verify timeout actually terminates a slow jq process
+# Use a FIFO that blocks forever to simulate corrupted/circular graph data
+TESTS=$((TESTS + 1))
+fifo="$WORK/slow-fifo"
+mkfifo "$fifo"
+# Keep FIFO open in background so jq blocks on read (not EOF)
+sleep 60 > "$fifo" &
+sleep_pid=$!
+start=$(date +%s)
+timeout 2 jq -r '.test' < "$fifo" 2>/dev/null || true
+end=$(date +%s)
+elapsed=$((end - start))
+kill "$sleep_pid" 2>/dev/null || true
+wait "$sleep_pid" 2>/dev/null || true
+if [[ "$elapsed" -le 4 ]]; then
+    echo "PASS: timeout kills hanging jq within 4s"
+else
+    echo "FAIL: timeout did not kill hanging jq (took ${elapsed}s)"
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

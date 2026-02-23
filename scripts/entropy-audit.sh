@@ -95,6 +95,7 @@ audit_project() {
     local code_files
     code_files=$(find "$project_dir" \( -name '*.py' -o -name '*.ts' -o -name '*.js' -o -name '*.sh' \) \
       -not -path '*/node_modules/*' -not -path '*/__pycache__/*' -not -path '*/.git/*' -not -path '*/.venv/*' -not -path '*/venv/*' -not -path '*/site-packages/*' -not -path '*/.tox/*' 2>/dev/null || true)
+    code_files=$(echo "$code_files" | sed '/^[[:space:]]*$/d')
     if [[ -n "$code_files" ]]; then
       while IFS= read -r f; do
         [[ -z "$f" ]] && continue
@@ -119,6 +120,7 @@ audit_project() {
     local py_files
     py_files=$(find "$project_dir" -name '*.py' \
       -not -path '*/node_modules/*' -not -path '*/__pycache__/*' -not -path '*/.git/*' -not -path '*/.venv/*' -not -path '*/venv/*' -not -path '*/site-packages/*' -not -path '*/.tox/*' 2>/dev/null || true)
+    py_files=$(echo "$py_files" | sed '/^[[:space:]]*$/d')
     if [[ -n "$py_files" ]]; then
       while IFS= read -r f; do
         [[ -z "$f" ]] && continue
@@ -140,6 +142,7 @@ audit_project() {
     local import_count=0
     local py_sample
     py_sample=$(find "$project_dir" -name '*.py' -not -path '*__pycache__*' -not -path '*.git*' 2>/dev/null | head -20 || true)
+    py_sample=$(echo "$py_sample" | sed '/^[[:space:]]*$/d')
     if [[ -n "$py_sample" ]]; then
       while IFS= read -r f; do
         [[ -z "$f" ]] && continue

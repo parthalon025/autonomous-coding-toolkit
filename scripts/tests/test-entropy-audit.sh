@@ -108,6 +108,34 @@ assert_contains "custom projects-dir used" "Auditing test-proj" "$output"
 output=$(PROJECTS_DIR="$WORK" bash "$EA" --project test-proj 2>&1) || true
 assert_contains "env var PROJECTS_DIR works" "Auditing test-proj" "$output"
 
+# === Empty find produces zero iterations (bug #13) ===
+# Create a project with no code files — only a CLAUDE.md
+mkdir -p "$WORK/empty-proj"
+echo "# Empty project" > "$WORK/empty-proj/CLAUDE.md"
+bash "$EA" --projects-dir "$WORK" --project empty-proj 2>&1 || true
+# Find the report file (audit writes to a timestamped dir)
+report=$(ls -t /tmp/entropy-audit-*/empty-proj.md 2>/dev/null | head -1)
+TESTS=$((TESTS + 1))
+if [[ -z "$report" ]]; then
+    echo "FAIL: empty find: no report file generated"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: empty find: report file generated"
+    report_content=$(cat "$report")
+    # Should report "All files within limit" (zero violations, zero iterations)
+    assert_contains "empty find: no size violations" "All files within limit" "$report_content"
+    # Should NOT contain any file-specific warnings (phantom iteration would produce one)
+    TESTS=$((TESTS + 1))
+    if echo "$report_content" | grep -qE '⚠️.*lines$'; then
+        echo "FAIL: empty find produced phantom file size warning"
+        FAILURES=$((FAILURES + 1))
+    else
+        echo "PASS: empty find: no phantom file size warnings"
+    fi
+    # Naming check should also report clean
+    assert_contains "empty find: no naming drift" "No naming drift detected" "$report_content"
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

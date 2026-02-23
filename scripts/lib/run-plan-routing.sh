@@ -162,7 +162,7 @@ compute_parallelism_score() {
             [[ "$completed" == *"|$b|"* ]] && continue
 
             local deps
-            deps=$(echo "$graph" | jq -r ".\"$b\"[]" 2>/dev/null || true)
+            deps=$(echo "$graph" | timeout 30 jq -r ".\"$b\"[]" 2>/dev/null || true)
             local all_met=true
             while IFS= read -r dep; do
                 [[ -z "$dep" ]] && continue
@@ -279,7 +279,7 @@ generate_routing_plan() {
     echo "  Dependency graph:"
     for ((b = 1; b <= total; b++)); do
         local deps
-        deps=$(echo "$graph" | jq -r ".\"$b\" | join(\",\")" 2>/dev/null || echo "")
+        deps=$(echo "$graph" | timeout 30 jq -r ".\"$b\" | join(\",\")" 2>/dev/null || echo "")
         local title
         title=$(get_batch_title "$plan_file" "$b")
         local model
