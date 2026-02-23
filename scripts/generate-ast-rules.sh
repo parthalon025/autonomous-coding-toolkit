@@ -8,6 +8,7 @@
 # Usage: generate-ast-rules.sh --lessons-dir <dir> --output-dir <dir> [--list]
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LESSONS_DIR=""
 OUTPUT_DIR=""
 LIST_ONLY=false
@@ -27,6 +28,11 @@ done
 if [[ -z "$LESSONS_DIR" ]]; then
     echo "ERROR: --lessons-dir required" >&2
     exit 1
+fi
+
+# Default output directory to scripts/patterns/ (where existing patterns live)
+if [[ -z "$OUTPUT_DIR" ]]; then
+    OUTPUT_DIR="$SCRIPT_DIR/patterns"
 fi
 
 generated=0

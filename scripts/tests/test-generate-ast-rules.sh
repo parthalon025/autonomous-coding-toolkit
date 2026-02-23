@@ -130,6 +130,15 @@ output=$("$SCRIPT_DIR/../generate-ast-rules.sh" --lessons-dir "$WORK/lessons" --
 assert_contains "generate-ast-rules: list shows lesson info" "lesson" "$output"
 assert_contains "generate-ast-rules: list shows summary" "syntactic" "$output"
 
+# Test: default output-dir falls back to scripts/patterns/ when --output-dir omitted
+default_output=$("$SCRIPT_DIR/../generate-ast-rules.sh" --lessons-dir "$WORK/lessons" 2>&1)
+assert_contains "generate-ast-rules: default output-dir uses patterns/" "patterns" "$default_output"
+# Verify it did NOT write to root or current directory
+assert_eq "generate-ast-rules: no rule written to cwd" "false" \
+    "$(test -f "0033-async.yml" && echo true || echo false)"
+# Clean up: remove test-generated file from real patterns dir
+rm -f "$SCRIPT_DIR/../patterns/0033-async.yml"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

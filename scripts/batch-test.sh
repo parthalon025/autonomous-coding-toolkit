@@ -36,23 +36,25 @@ run_project_tests() {
     fi
 
     echo "=== $project ==="
-    cd "$project_dir"
+    (
+        cd "$project_dir"
 
-    # Auto-detect test runner
-    if [[ -f pyproject.toml || -f setup.py || -f pytest.ini ]]; then
-        if check_memory; then
-            .venv/bin/python -m pytest --timeout=120 -x -q 2>&1 || true
+        # Auto-detect test runner
+        if [[ -f pyproject.toml || -f setup.py || -f pytest.ini ]]; then
+            if check_memory; then
+                .venv/bin/python -m pytest --timeout=120 -x -q 2>&1 || true
+            else
+                echo "Low memory — running with reduced parallelism"
+                .venv/bin/python -m pytest --timeout=120 -x -q -n 0 2>&1 || true
+            fi
+        elif [[ -f package.json ]] && grep -q '"test"' package.json 2>/dev/null; then
+            npm test 2>&1 || true
+        elif [[ -f Makefile ]] && grep -q '^test:' Makefile 2>/dev/null; then
+            make test 2>&1 || true
         else
-            echo "Low memory — running with reduced parallelism"
-            .venv/bin/python -m pytest --timeout=120 -x -q -n 0 2>&1 || true
+            echo "  No test runner detected — skipped"
         fi
-    elif [[ -f package.json ]] && grep -q '"test"' package.json 2>/dev/null; then
-        npm test 2>&1 || true
-    elif [[ -f Makefile ]] && grep -q '^test:' Makefile 2>/dev/null; then
-        make test 2>&1 || true
-    else
-        echo "  No test runner detected — skipped"
-    fi
+    )
 
     echo ""
 }
