@@ -139,6 +139,14 @@ run_mode_headless() {
         # Reset sampling count each batch — prevents leak from prior batch's retry/critical trigger (#16/#28)
         SAMPLE_COUNT=$SAMPLE_DEFAULT
 
+        # Budget enforcement
+        if [[ -n "${MAX_BUDGET:-}" ]]; then
+            if ! check_budget "$WORKTREE" "$MAX_BUDGET"; then
+                echo "STOPPING: Budget limit reached (\$${MAX_BUDGET})"
+                exit 1
+            fi
+        fi
+
         local title
         title=$(get_batch_title "$PLAN_FILE" "$batch")
         echo ""
@@ -378,11 +386,25 @@ Focus on fixing the root cause. Check test output carefully."
             fi
 
             # Run claude headless (unset CLAUDECODE to allow nested invocation)
+            # Use --output-format json to capture session_id for cost tracking
             local claude_exit=0
-            CLAUDECODE='' claude -p "$full_prompt" \
+            local claude_json_output=""
+            claude_json_output=$(CLAUDECODE='' claude -p "$full_prompt" \
                 --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
                 --permission-mode bypassPermissions \
-                2>&1 | tee "$log_file" || claude_exit=$?
+                --output-format json \
+                2>"$log_file.stderr") || claude_exit=$?
+
+            # Extract session_id and result from JSON output
+            local batch_session_id=""
+            if [[ -n "$claude_json_output" ]]; then
+                batch_session_id=$(echo "$claude_json_output" | jq -r '.session_id // empty' 2>/dev/null || true)
+                # Write result text to log file (was previously done by tee)
+                echo "$claude_json_output" | jq -r '.result // empty' 2>/dev/null > "$log_file" || true
+                # Append stderr to log
+                cat "$log_file.stderr" >> "$log_file" 2>/dev/null || true
+            fi
+            rm -f "$log_file.stderr"
 
             if [[ $claude_exit -ne 0 ]]; then
                 echo "WARNING: claude exited with code $claude_exit"
@@ -418,6 +440,12 @@ Focus on fixing the root cause. Check test output carefully."
                 echo "Batch $batch PASSED (${duration})"
                 batch_passed=true
 
+                # Record cost for this batch
+                if [[ -n "${batch_session_id:-}" ]]; then
+                    record_batch_cost "$WORKTREE" "$batch" "$batch_session_id" || \
+                        echo "WARNING: Failed to record batch cost (non-fatal)" >&2
+                fi
+
                 if [[ "$NOTIFY" == true ]]; then
                     {
                         local new_test_count
@@ -425,7 +453,9 @@ Focus on fixing the root cause. Check test output carefully."
                         # Build summary from git log (commits in this batch)
                         local batch_summary=""
                         batch_summary=$(cd "$WORKTREE" && git log --oneline -5 2>/dev/null | head -3 | sed 's/^[a-f0-9]* /• /' | tr '\n' '; ' | sed 's/; $//') || true
-                        notify_success "$plan_name" "$batch" "$END_BATCH" "$title" "$new_test_count" "$prev_test_count" "$duration" "$MODE" "$batch_summary"
+                        local batch_cost=""
+                        batch_cost=$(jq -r ".costs[\"$batch\"].estimated_cost_usd // empty" "$WORKTREE/.run-plan-state.json" 2>/dev/null || true)
+                        notify_success "$plan_name" "$batch" "$END_BATCH" "$title" "$new_test_count" "$prev_test_count" "$duration" "$MODE" "$batch_summary" "$batch_cost"
                     } || echo "WARNING: Telegram notification failed (non-fatal)" >&2
                 fi
                 break

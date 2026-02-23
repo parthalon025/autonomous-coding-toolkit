@@ -46,6 +46,7 @@ source "$SCRIPT_DIR/lib/run-plan-prompt.sh"
 source "$SCRIPT_DIR/lib/run-plan-headless.sh"
 source "$SCRIPT_DIR/lib/run-plan-context.sh"
 source "$SCRIPT_DIR/lib/run-plan-scoring.sh"
+source "$SCRIPT_DIR/lib/cost-tracking.sh"
 source "$SCRIPT_DIR/lib/run-plan-team.sh"
 
 # --- Defaults ---
