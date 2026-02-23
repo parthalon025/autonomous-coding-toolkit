@@ -99,12 +99,27 @@ generate_batch_context() {
 
     chars_used=${#context}
 
-    # 5. Progress.txt (if budget allows, last 10 lines)
+    # 5. Progress.txt (if budget allows — structured read for last 2 batches, fallback to tail)
     if [[ $(( chars_used + 500 )) -lt $TOKEN_BUDGET_CHARS ]]; then
         local progress_file="$worktree/progress.txt"
         if [[ -f "$progress_file" ]]; then
-            local progress
-            progress=$(tail -10 "$progress_file" 2>/dev/null || true)
+            local progress=""
+            if type read_batch_progress &>/dev/null; then
+                # Structured read: last 2 batches
+                local pb_start=$(( batch_num - 2 ))
+                [[ $pb_start -lt 1 ]] && pb_start=1
+                for ((pb = pb_start; pb < batch_num; pb++)); do
+                    local pb_content
+                    pb_content=$(read_batch_progress "$worktree" "$pb")
+                    if [[ -n "$pb_content" ]]; then
+                        progress+="$pb_content"$'\n'
+                    fi
+                done
+            fi
+            # Fallback: if structured read returned nothing, use tail
+            if [[ -z "$progress" ]]; then
+                progress=$(tail -10 "$progress_file" 2>/dev/null || true)
+            fi
             if [[ -n "$progress" ]]; then
                 context+="### Progress Notes"$'\n'
                 context+="$progress"$'\n\n'
