@@ -162,7 +162,10 @@ compute_parallelism_score() {
             [[ "$completed" == *"|$b|"* ]] && continue
 
             local deps
-            deps=$(echo "$graph" | timeout 30 jq -r ".\"$b\"[]" 2>/dev/null || true)
+            deps=$(echo "$graph" | timeout 30 jq -r ".\"$b\"[]" 2>/dev/null) || {
+                [[ $? -eq 124 ]] && echo "[WARN] jq timeout on batch $b — treating as no deps" >&2
+                deps=""
+            }
             local all_met=true
             while IFS= read -r dep; do
                 [[ -z "$dep" ]] && continue
@@ -279,7 +282,10 @@ generate_routing_plan() {
     echo "  Dependency graph:"
     for ((b = 1; b <= total; b++)); do
         local deps
-        deps=$(echo "$graph" | timeout 30 jq -r ".\"$b\" | join(\",\")" 2>/dev/null || echo "")
+        deps=$(echo "$graph" | timeout 30 jq -r ".\"$b\" | join(\",\")" 2>/dev/null) || {
+            [[ $? -eq 124 ]] && echo "[WARN] jq timeout on batch $b — treating as no deps" >&2
+            deps=""
+        }
         local title
         title=$(get_batch_title "$plan_file" "$b")
         local model
