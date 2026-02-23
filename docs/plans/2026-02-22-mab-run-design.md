@@ -1,8 +1,26 @@
 # Multi-Armed Bandit System Design
 
-**Date:** 2026-02-22
-**Status:** Approved
+**Date:** 2026-02-22 (updated 2026-02-23)
+**Status:** Approved — updated with research findings
 **Goal:** Competing autonomous agents (superpowers vs ralph-wiggum) execute the same brief using different methodologies, judged by an LLM that extracts lessons and updates strategy performance data. The toolkit gets smarter with every run, and community contributions compound learning for everyone.
+
+> ## Research-Driven Updates (2026-02-23)
+>
+> Based on cross-cutting synthesis of 25 research papers, the following changes were made:
+>
+> 1. **Thompson Sampling replaces LLM planner.** The planner agent (Section "Planner Agent") is now a bash function using Beta distribution sampling, not a separate `claude -p` call. Cheaper, faster, better calibrated. (Source: MAB Research R1, cross-cutting synthesis §F)
+>
+> 2. **Human calibration for first 10 decisions.** The judge's verdict is presented to the user for approval/override for the first 10 MAB runs. Only after 10 human-validated decisions does automated routing take over. (Source: cross-cutting synthesis §F — "validate against human judgment")
+>
+> 3. **Selective MAB (~30% of batches).** MAB is not the default mode. It triggers on: integration batches, first-time batch types (insufficient data), and historically flaky batches (>50% retry rate). Single-strategy routing is the default when win rates are clear. (Source: Cost/Quality paper — break-even only if prevents 1 debugging batch per 2 features)
+>
+> 4. **Prerequisites added.** Phase 1 (bug fixes, especially #10 state schema) and Phase 3 (cost tracking, prompt caching) must complete before MAB implementation. Without cost data, MAB economics can't be validated. (Source: cross-cutting synthesis §8)
+>
+> 5. **Plan slimmed from 6 to 4 batches.** Prompts are just files (no code), planner is now a function (not an agent), and community sync is a simple script. The original plan over-scoped. (Source: 80% infrastructure reuse finding from MAB R1)
+>
+> 6. **`{AB_LESSONS}` placeholder bug fixed.** Original plan used `{AB_LESSONS}` in `assemble_prompt()` but data file is `mab-lessons.json`. Changed to `{MAB_LESSONS}`.
+>
+> See updated plan: `docs/plans/2026-02-23-roadmap-to-completion.md` Phase 4.
 
 ## Problem
 

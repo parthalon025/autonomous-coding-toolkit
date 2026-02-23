@@ -1,14 +1,19 @@
 # Multi-Armed Bandit System Implementation Plan
 
+> **Status:** SUPERSEDED by `docs/plans/2026-02-23-roadmap-to-completion.md` Phase 4.
+> This plan is preserved for reference. The roadmap plan incorporates research findings
+> that changed the architecture (Thompson Sampling replaces LLM planner, human calibration
+> for first 10 decisions, selective MAB, 4 batches instead of 6).
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Implement competing autonomous agents (superpowers vs ralph-wiggum) that execute the same brief in parallel worktrees, judged by an LLM that extracts lessons and updates strategy performance data.
 
-**Architecture:** Thin bash orchestrator (`mab-run.sh`) creates worktrees, launches agents via `claude -p`, runs quality gates on both, then launches a judge agent that picks a winner and extracts lessons. A planner agent routes work units to MAB or single strategy based on `strategy-perf.json` historical data. An architecture map generator scans the project source to produce `ARCHITECTURE-MAP.json` for planner/judge context.
+**Architecture:** Thin bash orchestrator (`mab-run.sh`) creates worktrees, launches agents via `claude -p`, runs quality gates on both, then launches a judge agent that picks a winner and extracts lessons. ~~A planner agent routes work units to MAB or single strategy based on `strategy-perf.json` historical data.~~ **Updated:** Thompson Sampling function replaces LLM planner agent — cheaper and better calibrated. An architecture map generator scans the project source to produce `ARCHITECTURE-MAP.json` for planner/judge context.
 
 **Tech Stack:** Bash (orchestration), `claude -p` (agents), `jq` (JSON manipulation), Git worktrees (isolation)
 
-**Design doc:** `docs/plans/2026-02-22-mab-run-design.md`
+**Design doc:** `docs/plans/2026-02-22-mab-run-design.md` (updated 2026-02-23 with research findings)
 
 ---
 
