@@ -211,6 +211,17 @@ complete_batch "$WORK7" "final" 99
 val=$(get_previous_test_count "$WORK7")
 assert_eq "e2e: complete_batch 'final' then get_previous_test_count returns 99" "99" "$val"
 
+# --- Test: init_state includes costs object ---
+WORK_COST=$(mktemp -d)
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5" "$WORK6" "$WORK7" "$WORK_COST"' EXIT
+init_state "$WORK_COST" "plan.md" "headless"
+
+val=$(jq -r '.costs | type' "$WORK_COST/.run-plan-state.json")
+assert_eq "init_state: has costs object" "object" "$val"
+
+val=$(jq -r '.total_cost_usd' "$WORK_COST/.run-plan-state.json")
+assert_eq "init_state: total_cost_usd starts at 0" "0" "$val"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

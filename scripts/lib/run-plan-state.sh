@@ -33,6 +33,8 @@ init_state() {
             completed_batches: [],
             test_counts: {},
             durations: {},
+            costs: {},
+            total_cost_usd: 0,
             started_at: $started_at,
             last_quality_gate: null
         }' > "$sf"
