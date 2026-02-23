@@ -31,9 +31,12 @@ run_mode_headless() {
     local plan_name
     plan_name=$(basename "$PLAN_FILE" .md)
 
+    # Preserve user's --sample value before batch loop so per-batch reset doesn't clobber it (#16/#28)
+    local SAMPLE_DEFAULT=${SAMPLE_COUNT:-0}
+
     for ((batch = START_BATCH; batch <= END_BATCH; batch++)); do
         # Reset sampling count each batch — prevents leak from prior batch's retry/critical trigger (#16/#28)
-        SAMPLE_COUNT=0
+        SAMPLE_COUNT=$SAMPLE_DEFAULT
 
         local title
         title=$(get_batch_title "$PLAN_FILE" "$batch")
@@ -126,11 +129,12 @@ run_mode_headless() {
 
                 # Save current state so we can reset between candidates
                 # Track stash count to detect no-op stash on clean tree (#27)
-                local _stash_before _stash_after _stash_created=false
+                # Two separate flags: baseline (per-candidate restore) vs winner (end-of-sampling restore)
+                local _stash_before _stash_after _baseline_stash_created=false _winner_stash_created=false
                 _stash_before=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
                 (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
                 _stash_after=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                [[ "$_stash_after" -gt "$_stash_before" ]] && _stash_created=true
+                [[ "$_stash_after" -gt "$_stash_before" ]] && _baseline_stash_created=true
 
                 # Classify batch and get type-aware prompt variants
                 local batch_type
@@ -148,14 +152,14 @@ run_mode_headless() {
                     local candidate_log="$WORKTREE/logs/batch-${batch}-candidate-${c}.log"
                     candidate_logs+=("$candidate_log")
 
-                    # Restore clean state for each candidate
-                    (cd "$WORKTREE" && git checkout . 2>/dev/null && { [[ "$_stash_created" == true ]] && git stash pop -q 2>/dev/null || true; } || true)
+                    # Restore clean state for each candidate (uses baseline stash, never winner stash)
+                    (cd "$WORKTREE" && git checkout . 2>/dev/null && { [[ "$_baseline_stash_created" == true ]] && git stash pop -q 2>/dev/null || true; } || true)
                     local _inner_stash_before _inner_stash_after
                     _inner_stash_before=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
                     (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
                     _inner_stash_after=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                    _stash_created=false
-                    [[ "$_inner_stash_after" -gt "$_inner_stash_before" ]] && _stash_created=true
+                    _baseline_stash_created=false
+                    [[ "$_inner_stash_after" -gt "$_inner_stash_before" ]] && _baseline_stash_created=true
 
                     CLAUDECODE='' claude -p "${prompt}${variant_suffix}" \
                         --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
@@ -182,15 +186,15 @@ run_mode_headless() {
                     # If gate failed, reset for next candidate
                     if [[ $gate_passed -eq 0 ]]; then
                         (cd "$WORKTREE" && git checkout . 2>/dev/null || true)
-                        _stash_created=false
+                        _baseline_stash_created=false
                     else
-                        # Stash the winning state so we can restore it
+                        # Stash the winning state so we can restore it (separate from baseline)
                         local _win_stash_before _win_stash_after
                         _win_stash_before=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
                         (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
                         _win_stash_after=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                        _stash_created=false
-                        [[ "$_win_stash_after" -gt "$_win_stash_before" ]] && _stash_created=true
+                        _winner_stash_created=false
+                        [[ "$_win_stash_after" -gt "$_win_stash_before" ]] && _winner_stash_created=true
                     fi
                     c=$((c + 1))
                 done <<< "$variants"
@@ -201,8 +205,8 @@ run_mode_headless() {
                 if [[ "$winner" -ge 0 ]]; then
                     echo "  Winner: candidate $winner (scores: $scores)"
 
-                    # Restore winner's stashed state (only if stash was actually created)
-                    if [[ "$_stash_created" == true ]]; then
+                    # Restore winner's stashed state (only if winner stash was actually created)
+                    if [[ "$_winner_stash_created" == true ]]; then
                         (cd "$WORKTREE" && git stash pop -q 2>/dev/null || true)
                     fi
 
@@ -224,8 +228,8 @@ run_mode_headless() {
                     break
                 else
                     echo "  No candidate passed quality gate"
-                    # Restore clean state (only if stash was actually created)
-                    if [[ "$_stash_created" == true ]]; then
+                    # Restore clean state (only if baseline stash was actually created)
+                    if [[ "$_baseline_stash_created" == true ]]; then
                         (cd "$WORKTREE" && git stash pop -q 2>/dev/null || true)
                     fi
                 fi
