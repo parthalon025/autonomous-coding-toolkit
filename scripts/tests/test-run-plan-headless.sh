@@ -123,6 +123,58 @@ assert_eq "get_batch_text: empty batch returns empty" "" "$val"
 val=$(count_batches "$WORK/plan-empty.md")
 assert_eq "count_batches: counts all headers including empty" "3" "$val"
 
+# === Bug #16/#28: SAMPLE_COUNT resets at top of batch loop ===
+
+TESTS=$((TESTS + 1))
+# The SAMPLE_COUNT=0 reset must appear after the for-loop start and before sampling decision logic
+# Extract the region between the for-loop line and the SAMPLE_ON_RETRY check
+batch_loop_region=$(sed -n '/for ((batch = START_BATCH/,/SAMPLE_ON_RETRY/p' "$RPH")
+if echo "$batch_loop_region" | grep -q 'SAMPLE_COUNT=0'; then
+    echo "PASS: SAMPLE_COUNT resets to 0 at start of each batch iteration"
+else
+    echo "FAIL: SAMPLE_COUNT should reset to 0 at start of each batch iteration (bug #16/#28)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# === Bug #27: Stash pop guarded by stash creation check ===
+
+# The initial stash should track before/after count
+TESTS=$((TESTS + 1))
+if grep -q '_stash_before.*git stash list' "$RPH" && grep -q '_stash_after.*git stash list' "$RPH"; then
+    echo "PASS: Stash tracks before/after count to detect no-op"
+else
+    echo "FAIL: Stash should track before/after count to detect no-op stash (bug #27)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# The stash pop should be conditional on _stash_created
+TESTS=$((TESTS + 1))
+if grep -q '_stash_created.*true.*git stash pop' "$RPH"; then
+    echo "PASS: Stash pop is conditional on _stash_created flag"
+else
+    echo "FAIL: Stash pop should only execute when _stash_created is true (bug #27)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# No unconditional git stash pop should remain in sampling section
+TESTS=$((TESTS + 1))
+# Extract just the sampling block (between "If sampling enabled" and "continue  # Skip normal retry")
+sampling_block=$(sed -n '/If sampling enabled/,/continue.*Skip normal retry/p' "$RPH")
+# Every git stash pop must be guarded — either on the same line or within an if _stash_created block
+# Count total pops and guarded pops (inline guard or inside if-block with _stash_created on prior line)
+total_pops=$(echo "$sampling_block" | grep -c 'git stash pop' || true)
+# Guarded: either _stash_created on same line, or preceded by if-block checking _stash_created
+inline_guarded=$(echo "$sampling_block" | grep 'git stash pop' | grep -c '_stash_created' || true)
+# Block-guarded: stash pop lines preceded within 1 line by _stash_created check
+block_guarded=$(echo "$sampling_block" | grep -B1 'git stash pop' | grep -c '_stash_created' || true)
+guarded=$((inline_guarded + block_guarded))
+if [[ "$guarded" -ge "$total_pops" ]]; then
+    echo "PASS: All git stash pop calls in sampling block are guarded by _stash_created"
+else
+    echo "FAIL: Found unconditional git stash pop in sampling block ($guarded/$total_pops guarded, bug #27)"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
