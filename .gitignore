@@ -1,5 +1,6 @@
 # State files (generated during execution)
 .run-plan-state.json
+.run-plan-prefix.txt
 logs/
 progress.txt
 AGENTS.md

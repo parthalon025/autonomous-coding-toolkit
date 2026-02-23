@@ -135,6 +135,13 @@ run_mode_headless() {
     # Preserve user's --sample value before batch loop so per-batch reset doesn't clobber it (#16/#28)
     local SAMPLE_DEFAULT=${SAMPLE_COUNT:-0}
 
+    # Build and cache stable prompt prefix (reused across batches for API cache hits)
+    local prev_test_count_initial
+    prev_test_count_initial=$(get_previous_test_count "$WORKTREE")
+    local stable_prefix
+    stable_prefix=$(build_stable_prefix "$PLAN_FILE" "$WORKTREE" "$PYTHON" "$QUALITY_GATE_CMD" "$prev_test_count_initial")
+    echo "$stable_prefix" > "$WORKTREE/.run-plan-prefix.txt"
+
     for ((batch = START_BATCH; batch <= END_BATCH; batch++)); do
         # Reset sampling count each batch — prevents leak from prior batch's retry/critical trigger (#16/#28)
         SAMPLE_COUNT=$SAMPLE_DEFAULT
