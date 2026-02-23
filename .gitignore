@@ -21,6 +21,9 @@ node_modules/
 *.pem
 *.key
 
+# Worktrees
+.worktrees/
+
 # IDE
 .vscode/
 .idea/
