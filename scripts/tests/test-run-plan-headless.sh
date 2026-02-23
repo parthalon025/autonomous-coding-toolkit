@@ -167,7 +167,8 @@ fi
 # The old conflated _stash_created flag must not exist (except inside variable names like _baseline_stash_created)
 TESTS=$((TESTS + 1))
 # Match bare _stash_created (not preceded by baseline_ or winner_)
-bare_stash=$(grep -P '(?<!baseline)(?<!winner)_stash_created' "$RPH" || true)
+# Use grep -E + grep -v instead of PCRE lookbehind for macOS portability
+bare_stash=$(grep -E '_stash_created' "$RPH" | grep -Ev '(baseline|winner)_stash_created' || true)
 if [[ -z "$bare_stash" ]]; then
     echo "PASS: No bare _stash_created flag remains (all are baseline or winner prefixed)"
 else

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Batch audit across all project repos
 # Usage: batch-audit.sh <projects-dir> [focus]
 # Focus: stale-refs | security | test-coverage | naming | lessons | full (default: stale-refs)

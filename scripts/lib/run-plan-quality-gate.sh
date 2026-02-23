@@ -22,14 +22,14 @@ extract_test_count() {
     local count
 
     # 1. pytest: "N passed" (e.g., "85 passed" in "3 failed, 85 passed, 2 skipped in 30.1s")
-    count=$(echo "$output" | grep -oP '\b(\d+) passed\b' | tail -1 | grep -oP '^\d+' || true)
+    count=$(echo "$output" | grep -oE '[0-9]+ passed' | tail -1 | grep -oE '^[0-9]+' || true)
     if [[ -n "$count" ]]; then
         echo "$count"
         return
     fi
 
     # 2. jest: "Tests: N passed" (e.g., "Tests:       45 passed, 48 total")
-    count=$(echo "$output" | grep -oP 'Tests:\s+(\d+ failed, )?\K\d+(?= passed)' || true)
+    count=$(echo "$output" | grep -oE 'Tests:[[:space:]]+([0-9]+ failed, )?[0-9]+ passed' | grep -oE '[0-9]+ passed' | grep -oE '^[0-9]+' || true)
     if [[ -n "$count" ]]; then
         echo "$count"
         return

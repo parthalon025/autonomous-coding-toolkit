@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Run tests across all projects with memory awareness
 # Usage: batch-test.sh <projects-dir> [project-name]
 #

@@ -75,6 +75,15 @@ parse_lesson() {
 
     [[ -z "$pattern_type" || "$pattern_type" != "syntactic" ]] && return 1
     [[ -z "$pattern_regex" ]] && return 1
+
+    # Convert PCRE shorthand classes to POSIX ERE equivalents for grep -E portability.
+    # This lets lesson authors use \s, \d, \w, \b in regex: fields while keeping
+    # the scanner portable (grep -P is unavailable on macOS).
+    pattern_regex="${pattern_regex//\\d/[0-9]}"
+    pattern_regex="${pattern_regex//\\s/[[:space:]]}"
+    pattern_regex="${pattern_regex//\\w/[_[:alnum:]]}"
+    pattern_regex="${pattern_regex//\\b/\\b}"  # ERE \b is a GNU extension, widely available
+
     return 0
 }
 
@@ -191,7 +200,7 @@ for lfile in "$LESSONS_DIR"/[0-9]*.md; do
         [[ -z "$matched_file" ]] && continue
         echo "${matched_file}:${lineno}: [lesson-${local_id}] ${local_title}"
         ((violations++)) || true
-    done < <(grep -PHn "$pattern_regex" "${target_files[@]}" 2>/dev/null || true)
+    done < <(grep -EHn "$pattern_regex" "${target_files[@]}" 2>/dev/null || true)
 done
 
 # ---------------------------------------------------------------------------
