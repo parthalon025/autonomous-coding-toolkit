@@ -50,7 +50,7 @@ ollama_query() {
         api_url="$OLLAMA_DIRECT_URL/api/generate"
     fi
 
-    response=$(curl -s "$api_url" -d "$payload" --max-time 300)
+    response=$(curl -s "$api_url" -d "$payload" --connect-timeout 10 --max-time 300)
     echo "$response" | ollama_parse_response
 }
 

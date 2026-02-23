@@ -85,7 +85,9 @@ fi
 # Create state file for stop hook (markdown with YAML frontmatter)
 mkdir -p .claude
 
-# Quote completion promise for YAML safely (handles quotes, backslashes, special chars)
+# Quote completion promise for YAML safely via jq JSON encoding.
+# Note: jq produces JSON-escaped output (\n, \t become literal two-char sequences).
+# This is correct for YAML scalar values parsed by the stop hook's sed-based reader.
 if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]]; then
   COMPLETION_PROMISE_YAML=$(jq -n --arg cp "$COMPLETION_PROMISE" '$cp')
 else
@@ -110,7 +112,7 @@ Ralph loop activated in this session!
 
 Iteration: 1
 Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
-Completion promise: $(if [[ "$COMPLETION_PROMISE" != "null" ]]; then echo "${COMPLETION_PROMISE//\"/} (ONLY output when TRUE - do not lie!)"; else echo "none (runs forever)"; fi)
+Completion promise: $(if [[ "$COMPLETION_PROMISE" != "null" ]]; then echo "$COMPLETION_PROMISE (ONLY output when TRUE - do not lie!)"; else echo "none (runs forever)"; fi)
 
 The stop hook is now active. When you try to exit, the SAME PROMPT will be
 fed back to you. You'll see your previous work in files, creating a
