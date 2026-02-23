@@ -9,7 +9,7 @@
 #   generate_batch_context <plan_file> <batch_num> <worktree> -> markdown string
 #   record_failure_pattern <worktree> <batch_title> <failure_type> <winning_fix>
 
-TOKEN_BUDGET_CHARS=6000  # ~1500 tokens
+TOKEN_BUDGET_CHARS=10000  # ~2500 tokens
 
 generate_batch_context() {
     local plan_file="$1" batch_num="$2" worktree="$3"

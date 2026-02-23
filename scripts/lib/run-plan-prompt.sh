@@ -54,39 +54,76 @@ $(head -100 "$worktree/$ref")
         done <<< "$refs"
     fi
 
-    cat <<PROMPT
-You are implementing Batch ${batch_num}: ${title} from ${plan_file}.
+    # Cross-batch context: research warnings (from research JSON if present)
+    local research_warnings=""
+    # shellcheck disable=SC2086
+    for rj in "$worktree"/tasks/research-*.json; do
+        [[ -f "$rj" ]] || continue
+        local warnings
+        warnings=$(jq -r '.blocking_issues[]? // empty' "$rj" 2>/dev/null || true)
+        if [[ -n "$warnings" ]]; then
+            research_warnings+="$warnings"$'\n'
+        fi
+    done
 
-Working directory: ${worktree}
-Python: ${python}
-Branch: ${branch}
+    # Build prompt: task at top, requirements at bottom (Lost in the Middle mitigation)
+    # All sections wrapped in XML tags for structured parsing
+    local prompt=""
+    prompt+="You are implementing Batch ${batch_num}: ${title} from ${plan_file}."$'\n'
+    prompt+=""$'\n'
+    prompt+="Working directory: ${worktree}"$'\n'
+    prompt+="Python: ${python}"$'\n'
+    prompt+="Branch: ${branch}"$'\n'
+    prompt+=""$'\n'
 
-Tasks in this batch:
-${batch_text}
+    # Task text at the top (highest priority — never lost in the middle)
+    prompt+="<batch_tasks>"$'\n'
+    prompt+="${batch_text}"$'\n'
+    prompt+="</batch_tasks>"$'\n'
 
-Recent commits:
-${recent_commits}
-$(if [[ -n "$progress_tail" ]]; then
-echo "
-Previous progress:
-${progress_tail}"
-fi)
-$(if [[ -n "$prev_gate" && "$prev_gate" != "null" ]]; then
-echo "
-Previous quality gate: ${prev_gate}"
-fi)
-$(if [[ -n "$context_refs_content" ]]; then
-echo "
-Referenced files from prior batches:
-${context_refs_content}"
-fi)
+    # Prior context in the middle
+    prompt+=""$'\n'
+    prompt+="<prior_context>"$'\n'
+    prompt+="Recent commits:"$'\n'
+    prompt+="${recent_commits}"$'\n'
+    if [[ -n "$progress_tail" ]]; then
+        prompt+=""$'\n'
+        prompt+="<prior_progress>"$'\n'
+        prompt+="${progress_tail}"$'\n'
+        prompt+="</prior_progress>"$'\n'
+    fi
+    if [[ -n "$prev_gate" && "$prev_gate" != "null" ]]; then
+        prompt+=""$'\n'
+        prompt+="Previous quality gate: ${prev_gate}"$'\n'
+    fi
+    prompt+="</prior_context>"$'\n'
 
-Requirements:
-- TDD: write test -> verify fail -> implement -> verify pass -> commit each task
-- After all tasks: run quality gate (${quality_gate_cmd})
-- Update progress.txt with batch summary and commit
-- All ${prev_test_count}+ tests must pass
-PROMPT
+    # Referenced files (if any)
+    if [[ -n "$context_refs_content" ]]; then
+        prompt+=""$'\n'
+        prompt+="<referenced_files>"$'\n'
+        prompt+="${context_refs_content}"$'\n'
+        prompt+="</referenced_files>"$'\n'
+    fi
+
+    # Research warnings (if any)
+    if [[ -n "$research_warnings" ]]; then
+        prompt+=""$'\n'
+        prompt+="<research_warnings>"$'\n'
+        prompt+="${research_warnings}"$'\n'
+        prompt+="</research_warnings>"$'\n'
+    fi
+
+    # Requirements at the bottom (anchored — recency bias helps)
+    prompt+=""$'\n'
+    prompt+="<requirements>"$'\n'
+    prompt+="- TDD: write test -> verify fail -> implement -> verify pass -> commit each task"$'\n'
+    prompt+="- After all tasks: run quality gate (${quality_gate_cmd})"$'\n'
+    prompt+="- Update progress.txt with batch summary and commit"$'\n'
+    prompt+="- All ${prev_test_count}+ tests must pass"$'\n'
+    prompt+="</requirements>"$'\n'
+
+    printf '%s' "$prompt"
 }
 
 # Generate AGENTS.md in the worktree for agent team awareness.
