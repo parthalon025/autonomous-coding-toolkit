@@ -64,6 +64,7 @@ NOTIFY=false
 VERIFY=false
 RESUME=false
 SKIP_PLAN_QUALITY=false
+SKIP_ECHO_BACK=false
 MAX_BUDGET=""
 
 # --- Usage ---
@@ -91,6 +92,7 @@ Options:
   --notify                             Send Telegram notifications
   --verify                             Run verification after all batches
   --skip-plan-quality                  Skip plan quality scorecard check
+  --skip-echo-back                     Skip spec echo-back verification
   --resume                             Resume from saved state
   --max-budget <dollars>               Budget cap (reserved for future use)
   -h, --help                           Show this help message
@@ -158,6 +160,9 @@ parse_args() {
                 ;;
             --skip-plan-quality)
                 SKIP_PLAN_QUALITY=true; shift
+                ;;
+            --skip-echo-back)
+                SKIP_ECHO_BACK=true; shift
                 ;;
             --resume)
                 RESUME=true; shift

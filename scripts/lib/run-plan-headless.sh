@@ -2,8 +2,103 @@
 # run-plan-headless.sh — Headless batch execution loop for run-plan
 #
 # Requires globals: WORKTREE, RESUME, START_BATCH, END_BATCH, NOTIFY,
-#   PLAN_FILE, QUALITY_GATE_CMD, PYTHON, MAX_RETRIES, ON_FAILURE, VERIFY, MODE
+#   PLAN_FILE, QUALITY_GATE_CMD, PYTHON, MAX_RETRIES, ON_FAILURE, VERIFY, MODE,
+#   SKIP_ECHO_BACK
 # Requires libs: run-plan-parser, state, quality-gate, notify, prompt, scoring
+
+# echo_back_check — Verify agent understands the batch spec before execution
+# Args: <batch_text> <log_dir> <batch_num> [claude_cmd]
+# Returns: 0 if restatement matches spec, 1 if mismatch after retry
+# The optional claude_cmd parameter allows test injection of a mock.
+echo_back_check() {
+    local batch_text="$1"
+    local log_dir="$2"
+    local batch_num="$3"
+    local claude_cmd="${4:-claude}"
+
+    local echo_prompt restatement verify_prompt verdict
+    local echo_log="$log_dir/batch-${batch_num}-echo-back.log"
+
+    # Step 1: Ask the agent to restate the batch spec
+    echo_prompt="Before implementing, restate in one paragraph what this batch must accomplish. Do not write any code. Just describe the goal and key deliverables.
+
+The batch specification is:
+${batch_text}"
+
+    restatement=$(CLAUDECODE='' $claude_cmd -p "$echo_prompt" \
+        --allowedTools "" \
+        --permission-mode bypassPermissions \
+        2>"$echo_log" || true)
+
+    if [[ -z "$restatement" ]]; then
+        echo "  Echo-back: no restatement received (skipping check)" >&2
+        return 0
+    fi
+
+    # Extract first paragraph (up to first blank line)
+    restatement=$(echo "$restatement" | awk '/^$/{exit} {print}')
+
+    # Step 2: Lightweight comparison via haiku
+    verify_prompt="Compare these two texts. Does the RESTATEMENT accurately capture the key goals of the ORIGINAL SPEC? Answer YES or NO followed by a brief reason.
+
+ORIGINAL SPEC:
+${batch_text}
+
+RESTATEMENT:
+${restatement}"
+
+    verdict=$(CLAUDECODE='' $claude_cmd -p "$verify_prompt" \
+        --model haiku \
+        --allowedTools "" \
+        --permission-mode bypassPermissions \
+        2>>"$echo_log" || true)
+
+    if echo "$verdict" | grep -qi "^YES" 2>/dev/null; then
+        echo "  Echo-back: PASSED (spec understood)"
+        return 0
+    fi
+
+    # Step 3: Retry once with clarified prompt
+    echo "  Echo-back: MISMATCH — retrying with clarified prompt" >&2
+    local reason
+    reason=$(echo "$verdict" | head -2)
+
+    local retry_prompt="Your previous restatement did not match the spec. The reviewer said: ${reason}
+
+Re-read the specification carefully and restate in one paragraph what this batch must accomplish:
+${batch_text}"
+
+    local retry_restatement
+    retry_restatement=$(CLAUDECODE='' $claude_cmd -p "$retry_prompt" \
+        --allowedTools "" \
+        --permission-mode bypassPermissions \
+        2>>"$echo_log" || true)
+
+    retry_restatement=$(echo "$retry_restatement" | awk '/^$/{exit} {print}')
+
+    local retry_verify="Compare these two texts. Does the RESTATEMENT accurately capture the key goals of the ORIGINAL SPEC? Answer YES or NO followed by a brief reason.
+
+ORIGINAL SPEC:
+${batch_text}
+
+RESTATEMENT:
+${retry_restatement}"
+
+    local retry_verdict
+    retry_verdict=$(CLAUDECODE='' $claude_cmd -p "$retry_verify" \
+        --model haiku \
+        --allowedTools "" \
+        --permission-mode bypassPermissions \
+        2>>"$echo_log" || true)
+
+    if echo "$retry_verdict" | grep -qi "^YES" 2>/dev/null; then
+        echo "  Echo-back: PASSED on retry (spec understood)"
+        return 0
+    fi
+
+    echo "  Echo-back: FAILED after retry (spec not understood)" >&2
+    return 1
+}
 
 run_mode_headless() {
     mkdir -p "$WORKTREE/logs"
@@ -82,6 +177,13 @@ run_mode_headless() {
 
         local prompt
         prompt=$(build_batch_prompt "$PLAN_FILE" "$batch" "$WORKTREE" "$PYTHON" "$QUALITY_GATE_CMD" "$prev_test_count")
+
+        # Spec echo-back gate: verify agent understands the batch before executing
+        if [[ "${SKIP_ECHO_BACK:-false}" != true ]]; then
+            if ! echo_back_check "$batch_text" "$WORKTREE/logs" "$batch"; then
+                echo "WARNING: Echo-back check failed for batch $batch (proceeding anyway)" >&2
+            fi
+        fi
 
         local max_attempts=$((MAX_RETRIES + 1))
         local attempt=0
