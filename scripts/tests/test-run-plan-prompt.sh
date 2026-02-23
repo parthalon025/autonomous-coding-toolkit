@@ -205,6 +205,49 @@ rm -rf "$WORKTREE/tasks"
 prompt5=$(build_batch_prompt "$FIXTURE" 1 "$WORKTREE" "python3" "scripts/quality-gate.sh" 0)
 assert_not_contains "no research: no <research_warnings> tag" "<research_warnings>" "$prompt5"
 
+# Helper: assert two values are equal
+assert_eq() {
+    local desc="$1" expected="$2" actual="$3"
+    TESTS=$((TESTS + 1))
+    if [[ "$expected" != "$actual" ]]; then
+        echo "FAIL: $desc"
+        echo "  expected: $expected"
+        echo "  actual:   $actual"
+        FAILURES=$((FAILURES + 1))
+    else
+        echo "PASS: $desc"
+    fi
+}
+
+# =============================================================================
+# Stable prefix / variable suffix split tests
+# =============================================================================
+
+# --- Test: build_stable_prefix produces consistent output ---
+prefix1=$(build_stable_prefix "$FIXTURE" "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh" 0)
+prefix2=$(build_stable_prefix "$FIXTURE" "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh" 0)
+assert_eq "stable prefix: identical across calls" "$prefix1" "$prefix2"
+
+# --- Test: build_stable_prefix is different from build_variable_suffix ---
+suffix1=$(build_variable_suffix "$FIXTURE" 1 "$WORKTREE" 0)
+assert_not_contains "prefix does not contain batch tasks" "Task 1: Create Data Model" "$prefix1"
+assert_contains "suffix contains batch tasks" "Task 1: Create Data Model" "$suffix1"
+
+# --- Test: build_variable_suffix changes with batch number ---
+suffix2=$(build_variable_suffix "$FIXTURE" 2 "$WORKTREE" 0)
+assert_not_contains "suffix batch 2: no batch 1 tasks" "Create Data Model" "$suffix2"
+assert_contains "suffix batch 2: has batch 2 tasks" "Wire Together" "$suffix2"
+
+# --- Test: build_batch_prompt still works (backward compat) ---
+full_prompt=$(build_batch_prompt "$FIXTURE" 1 "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh" 0)
+assert_contains "full prompt: has batch tasks" "Task 1: Create Data Model" "$full_prompt"
+assert_contains "full prompt: has requirements" "TDD" "$full_prompt"
+
+# --- Test: prefix contains metadata, suffix contains batch-specific ---
+assert_contains "prefix: has working directory" "$WORKTREE" "$prefix1"
+assert_contains "prefix: has python path" "/usr/bin/python3" "$prefix1"
+assert_contains "suffix: has batch tasks header" "Batch 1" "$suffix1"
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then
