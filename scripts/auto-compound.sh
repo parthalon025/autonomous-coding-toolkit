@@ -72,7 +72,7 @@ cd "$PROJECT_DIR"
 # Find report file
 if [[ -z "$REPORT_FILE" ]]; then
   if [[ -d "reports" ]]; then
-    REPORT_FILE=$(ls -t reports/*.md 2>/dev/null | head -1)
+    REPORT_FILE=$(find reports/ -name '*.md' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
   fi
 fi
 
@@ -102,7 +102,7 @@ else
   "$SCRIPT_DIR/analyze-report.sh" "$REPORT_FILE" --model "$MODEL" --output-dir .
   PRIORITY=$(jq -r '.priority' analysis.json)
   # Create slug from priority
-  FEATURE_SLUG=$(echo "$PRIORITY" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | head -c 40)
+  FEATURE_SLUG=$(echo "$PRIORITY" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | cut -c1-40)
 fi
 echo "  Priority: $PRIORITY"
 echo "  Branch:   compound/$FEATURE_SLUG"
