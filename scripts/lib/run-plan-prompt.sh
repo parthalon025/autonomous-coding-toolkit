@@ -9,19 +9,48 @@
 #   generate_agents_md <plan_file> <worktree> <mode>
 #     -> writes AGENTS.md to worktree for agent team awareness
 
-build_batch_prompt() {
+# Build the stable portion of the prompt (identical across batches — enables API cache hits).
+# Args: <plan_file> <worktree> <python> <quality_gate_cmd> <prev_test_count>
+build_stable_prefix() {
+    local plan_file="$1"
+    local worktree="$2"
+    local python="$3"
+    local quality_gate_cmd="$4"
+    local prev_test_count="$5"
+
+    local branch
+    branch=$(git -C "$worktree" branch --show-current 2>/dev/null || echo "unknown")
+
+    local prefix=""
+    prefix+="You are implementing batches from ${plan_file}."$'\n'
+    prefix+=""$'\n'
+    prefix+="Working directory: ${worktree}"$'\n'
+    prefix+="Python: ${python}"$'\n'
+    prefix+="Branch: ${branch}"$'\n'
+    prefix+=""$'\n'
+    prefix+="<requirements>"$'\n'
+    prefix+="- TDD: write test -> verify fail -> implement -> verify pass -> commit each task"$'\n'
+    prefix+="- After all tasks: run quality gate (${quality_gate_cmd})"$'\n'
+    prefix+="- Update progress.txt with batch summary and commit"$'\n'
+    prefix+="- All ${prev_test_count}+ tests must pass"$'\n'
+    prefix+="</requirements>"$'\n'
+
+    printf '%s' "$prefix"
+}
+
+# Build the variable portion of the prompt (changes each batch).
+# Args: <plan_file> <batch_num> <worktree> <prev_test_count>
+build_variable_suffix() {
     local plan_file="$1"
     local batch_num="$2"
     local worktree="$3"
-    local python="$4"
-    local quality_gate_cmd="$5"
-    local prev_test_count="$6"
+    local prev_test_count="$4"
 
-    local title branch batch_text recent_commits progress_tail prev_gate
-
+    local title batch_text
     title=$(get_batch_title "$plan_file" "$batch_num")
-    branch=$(git -C "$worktree" branch --show-current 2>/dev/null || echo "unknown")
     batch_text=$(get_batch_text "$plan_file" "$batch_num")
+
+    local recent_commits progress_tail prev_gate
 
     # Cross-batch context: recent commits
     recent_commits=$(git -C "$worktree" log --oneline -5 2>/dev/null || echo "(no commits)")
@@ -66,64 +95,62 @@ $(head -100 "$worktree/$ref")
         fi
     done
 
-    # Build prompt: task at top, requirements at bottom (Lost in the Middle mitigation)
-    # All sections wrapped in XML tags for structured parsing
-    local prompt=""
-    prompt+="You are implementing Batch ${batch_num}: ${title} from ${plan_file}."$'\n'
-    prompt+=""$'\n'
-    prompt+="Working directory: ${worktree}"$'\n'
-    prompt+="Python: ${python}"$'\n'
-    prompt+="Branch: ${branch}"$'\n'
-    prompt+=""$'\n'
+    local suffix=""
+    suffix+="Now implementing Batch ${batch_num}: ${title}"$'\n'
+    suffix+=""$'\n'
+    suffix+="<batch_tasks>"$'\n'
+    suffix+="${batch_text}"$'\n'
+    suffix+="</batch_tasks>"$'\n'
 
-    # Task text at the top (highest priority — never lost in the middle)
-    prompt+="<batch_tasks>"$'\n'
-    prompt+="${batch_text}"$'\n'
-    prompt+="</batch_tasks>"$'\n'
-
-    # Prior context in the middle
-    prompt+=""$'\n'
-    prompt+="<prior_context>"$'\n'
-    prompt+="Recent commits:"$'\n'
-    prompt+="${recent_commits}"$'\n'
+    suffix+=""$'\n'
+    suffix+="<prior_context>"$'\n'
+    suffix+="Recent commits:"$'\n'
+    suffix+="${recent_commits}"$'\n'
     if [[ -n "$progress_tail" ]]; then
-        prompt+=""$'\n'
-        prompt+="<prior_progress>"$'\n'
-        prompt+="${progress_tail}"$'\n'
-        prompt+="</prior_progress>"$'\n'
+        suffix+=""$'\n'
+        suffix+="<prior_progress>"$'\n'
+        suffix+="${progress_tail}"$'\n'
+        suffix+="</prior_progress>"$'\n'
     fi
     if [[ -n "$prev_gate" && "$prev_gate" != "null" ]]; then
-        prompt+=""$'\n'
-        prompt+="Previous quality gate: ${prev_gate}"$'\n'
+        suffix+=""$'\n'
+        suffix+="Previous quality gate: ${prev_gate}"$'\n'
     fi
-    prompt+="</prior_context>"$'\n'
+    suffix+="</prior_context>"$'\n'
 
-    # Referenced files (if any)
     if [[ -n "$context_refs_content" ]]; then
-        prompt+=""$'\n'
-        prompt+="<referenced_files>"$'\n'
-        prompt+="${context_refs_content}"$'\n'
-        prompt+="</referenced_files>"$'\n'
+        suffix+=""$'\n'
+        suffix+="<referenced_files>"$'\n'
+        suffix+="${context_refs_content}"$'\n'
+        suffix+="</referenced_files>"$'\n'
     fi
 
-    # Research warnings (if any)
     if [[ -n "$research_warnings" ]]; then
-        prompt+=""$'\n'
-        prompt+="<research_warnings>"$'\n'
-        prompt+="${research_warnings}"$'\n'
-        prompt+="</research_warnings>"$'\n'
+        suffix+=""$'\n'
+        suffix+="<research_warnings>"$'\n'
+        suffix+="${research_warnings}"$'\n'
+        suffix+="</research_warnings>"$'\n'
     fi
 
-    # Requirements at the bottom (anchored — recency bias helps)
-    prompt+=""$'\n'
-    prompt+="<requirements>"$'\n'
-    prompt+="- TDD: write test -> verify fail -> implement -> verify pass -> commit each task"$'\n'
-    prompt+="- After all tasks: run quality gate (${quality_gate_cmd})"$'\n'
-    prompt+="- Update progress.txt with batch summary and commit"$'\n'
-    prompt+="- All ${prev_test_count}+ tests must pass"$'\n'
-    prompt+="</requirements>"$'\n'
+    printf '%s' "$suffix"
+}
 
-    printf '%s' "$prompt"
+# Build complete batch prompt by composing stable prefix and variable suffix.
+# Args: <plan_file> <batch_num> <worktree> <python> <quality_gate_cmd> <prev_test_count>
+# Backward compatible — same signature and output contract as before.
+build_batch_prompt() {
+    local plan_file="$1"
+    local batch_num="$2"
+    local worktree="$3"
+    local python="$4"
+    local quality_gate_cmd="$5"
+    local prev_test_count="$6"
+
+    local prefix suffix
+    prefix=$(build_stable_prefix "$plan_file" "$worktree" "$python" "$quality_gate_cmd" "$prev_test_count")
+    suffix=$(build_variable_suffix "$plan_file" "$batch_num" "$worktree" "$prev_test_count")
+
+    printf '%s\n%s' "$prefix" "$suffix"
 }
 
 # Generate AGENTS.md in the worktree for agent team awareness.
