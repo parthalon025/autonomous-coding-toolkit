@@ -85,9 +85,9 @@ fi
 # Create state file for stop hook (markdown with YAML frontmatter)
 mkdir -p .claude
 
-# Quote completion promise for YAML if it contains special chars or is not null
+# Quote completion promise for YAML safely (handles quotes, backslashes, special chars)
 if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]]; then
-  COMPLETION_PROMISE_YAML="\"$COMPLETION_PROMISE\""
+  COMPLETION_PROMISE_YAML=$(jq -n --arg cp "$COMPLETION_PROMISE" '$cp')
 else
   COMPLETION_PROMISE_YAML="null"
 fi

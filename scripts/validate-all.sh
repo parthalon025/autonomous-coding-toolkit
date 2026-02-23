@@ -36,7 +36,7 @@ for name in "${validators[@]}"; do
     fi
 
     exit_code=0
-    bash "$script" "${PASS_ARGS[@]}" >/dev/null 2>&1 || exit_code=$?
+    bash "$script" ${PASS_ARGS[@]+"${PASS_ARGS[@]}"} >/dev/null 2>&1 || exit_code=$?
 
     if [[ $exit_code -eq 0 ]]; then
         echo "  $name: PASS"

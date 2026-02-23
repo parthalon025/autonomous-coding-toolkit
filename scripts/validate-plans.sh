@@ -94,11 +94,11 @@ for plan in "${FILES[@]}"; do
         batch_num="${batch_numbers[$i]}"
         start_line="${batch_lines[$i]}"
 
-        # End is next batch start or EOF
+        # End is line before next batch start, or EOF for last batch
         if [[ $((i + 1)) -lt ${#batch_lines[@]} ]]; then
-            end_line="${batch_lines[$((i + 1))]}"
+            end_line=$(( ${batch_lines[$((i + 1))]} - 1 ))
         else
-            end_line=$((total_lines + 1))
+            end_line="$total_lines"
         fi
 
         # Check for ### Task headers between start and end

@@ -44,7 +44,7 @@ ollama_query() {
     payload=$(ollama_build_payload "$model" "$prompt")
 
     # Prefer queue if available
-    if curl -s -o /dev/null -w '%{http_code}' "$OLLAMA_QUEUE_URL/health" 2>/dev/null | grep -q "200"; then
+    if curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$OLLAMA_QUEUE_URL/health" 2>/dev/null | grep -q "200"; then
         api_url="$OLLAMA_QUEUE_URL/api/generate"
     else
         api_url="$OLLAMA_DIRECT_URL/api/generate"

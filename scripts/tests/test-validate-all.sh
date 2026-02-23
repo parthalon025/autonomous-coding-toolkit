@@ -30,6 +30,11 @@ output=$(bash "$VALIDATOR" --help 2>&1 || echo "EXIT:$?")
 assert_contains "--help: shows usage" "Usage:" "$output"
 assert_not_contains "--help: exit 0" "EXIT:" "$output"
 
+# === Test: No args (empty PASS_ARGS) works under set -u (#23) ===
+# This specifically tests that empty array expansion doesn't error under set -u
+output=$(bash "$VALIDATOR" --warn 2>&1; echo "EXIT:$?")
+assert_contains "empty PASS_ARGS: succeeds" "EXIT:0" "$output"
+
 # === Test: Reports FAIL and exits 1 when a validator fails ===
 # Create a controlled fixture with an invalid skill to trigger failure
 TMP_DIR=$(mktemp -d)

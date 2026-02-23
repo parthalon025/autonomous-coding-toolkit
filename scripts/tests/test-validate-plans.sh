@@ -157,6 +157,27 @@ output=$(run_validator --help)
 assert_contains "--help: shows usage" "Usage:" "$output"
 assert_contains "--help: exits 0" "EXIT:0" "$output"
 
+# === Test: Task on next batch header line not counted for previous batch (#26) ===
+# This tests the sed range fix — when a "### Task" line is the first line of
+# the next batch (immediately after "## Batch N"), it must not be counted for
+# the previous batch.
+rm -rf "$WORK/plans"
+create_plan "2026-01-01-adjacent.md" '# Plan
+
+## Batch 1: Setup
+
+Some content but no tasks here.
+
+## Batch 2: Implementation
+
+### Task 1: The only task
+
+Content.'
+
+output=$(run_validator)
+assert_contains "adjacent batch: batch 1 has no tasks" "Batch 1 has no tasks" "$output"
+assert_contains "adjacent batch: FAIL" "FAIL" "$output"
+
 # === Test: Missing plans directory fails ===
 rm -rf "$WORK/plans"
 output=$(PLANS_DIR="$WORK/nonexistent" bash "$VALIDATOR" 2>&1 || echo "EXIT:$?")
