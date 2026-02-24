@@ -100,6 +100,15 @@ set_quality_gate() {
     tmp=$(mktemp)
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+    # Normalize passed to a JSON boolean so --argjson never receives an
+    # unexpected value (#8). Callers pass "true"/"false" conventionally, but
+    # "1"/"0" or "yes"/"no" would crash jq with --argjson.
+    if [[ "$passed" == "true" || "$passed" == "1" || "$passed" == "yes" ]]; then
+        passed="true"
+    else
+        passed="false"
+    fi
+
     # batch_num may be non-numeric (e.g. 'final'), so use --arg and convert in jq
     if [[ "$batch_num" =~ ^[0-9]+$ ]]; then
         jq \

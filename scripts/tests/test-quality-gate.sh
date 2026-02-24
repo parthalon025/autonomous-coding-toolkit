@@ -189,6 +189,27 @@ else
     echo "PASS: quality-gate.sh does not use free -g"
 fi
 
+# === Word-splitting fix (#5): changed_files passed to lesson-check via array ===
+
+TESTS=$((TESTS + 1))
+# Should use readarray and "${changed_array[@]}" — not bare $changed_files
+if grep -q 'readarray.*changed_array' "$QG" && grep -q '"${changed_array\[@\]}"' "$QG"; then
+    echo "PASS: quality-gate passes files to lesson-check via array (no word-splitting, bug #5)"
+else
+    echo "FAIL: quality-gate should use readarray + \${changed_array[@]} for lesson-check args (bug #5)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# The old unquoted $changed_files pattern must not be present
+TESTS=$((TESTS + 1))
+# Strip comment lines and look for the old unquoted expansion used as args
+if grep -v '^\s*#' "$QG" | grep -q 'lesson-check.sh \$changed_files\b'; then
+    echo "FAIL: quality-gate still passes unquoted \$changed_files to lesson-check (bug #5)"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: quality-gate does not pass unquoted \$changed_files to lesson-check"
+fi
+
 # === ast-grep section present in full mode (advisory, doesn't fail gate) ===
 
 output=$(bash "$QG" --project-root "$WORK/py-proj" 2>&1) || true

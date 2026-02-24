@@ -83,6 +83,15 @@ compute_parallel_groups() {
 
 # --- Team mode execution (headless parallel) ---
 run_mode_team() {
+    # WARNING: Team mode uses a shared worktree. Concurrent git operations
+    # (add, commit, stash) from parallel claude processes may conflict and
+    # corrupt the staging area. Each batch in a group runs against the same
+    # filesystem; the batches within a group are independent by design
+    # (no shared files per the dependency graph), but git state is global.
+    # For full isolation, run batches sequentially (headless mode) or ensure
+    # batches in each parallel group touch strictly non-overlapping files.
+    echo "WARNING: Team mode uses a shared worktree. Concurrent git operations may conflict." >&2
+
     local dep_graph
     dep_graph=$(build_dependency_graph "$PLAN_FILE")
 

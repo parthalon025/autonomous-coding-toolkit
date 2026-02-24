@@ -200,12 +200,21 @@ run_mode_headless() {
                     _claude_md_existed=true
                     _claude_md_backup=$(cat "$claude_md")
                 fi
-                # Remove previous run-plan context section if present
+                # Remove previous run-plan context section if present.
+                # awk approach avoids the sed range-deletion bug (#4): if
+                # "## Run-Plan:" is the LAST section in CLAUDE.md, the sed
+                # pattern '/^## Run-Plan:/,/^## [^R]/' has no closing anchor
+                # and deletes from Run-Plan to EOF — eating the entire file.
+                # awk prints everything before the Run-Plan section, skips
+                # lines until the next ## header (or EOF), then resumes.
                 if [[ -f "$claude_md" ]] && grep -q "^## Run-Plan:" "$claude_md"; then
                     local tmp
                     tmp=$(mktemp)
-                    sed '/^## Run-Plan:/,/^## [^R]/{ /^## [^R]/!d; }' "$claude_md" > "$tmp"
-                    sed -i '/^## Run-Plan:/d' "$tmp"
+                    awk '
+                        /^## Run-Plan:/ { in_section=1; next }
+                        in_section && /^## / { in_section=0 }
+                        !in_section { print }
+                    ' "$claude_md" > "$tmp"
                     mv "$tmp" "$claude_md"
                 fi
                 # Append new context
@@ -284,14 +293,13 @@ run_mode_headless() {
                 local scores=""
                 local candidate_logs=()
 
-                # Save current state so we can reset between candidates
-                # Track stash count to detect no-op stash on clean tree (#27)
-                # Two separate flags: baseline (per-candidate restore) vs winner (end-of-sampling restore)
-                local _stash_before _stash_after _baseline_stash_created=false _winner_stash_created=false
-                _stash_before=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
-                _stash_after=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                [[ "$_stash_after" -gt "$_stash_before" ]] && _baseline_stash_created=true
+                # Save baseline state using a patch file rather than git stash.
+                # This avoids LIFO ordering issues when multiple stash/pop cycles
+                # interact: stash.pop always restores the top entry, so interleaved
+                # stash calls across candidates can restore the wrong state (#2).
+                # Using patch files gives explicit, named state snapshots instead.
+                local _baseline_patch="/tmp/run-plan-baseline-${batch}-$$.diff"
+                (cd "$WORKTREE" && git diff > "$_baseline_patch" 2>/dev/null || true)
 
                 # Classify batch and get type-aware prompt variants
                 local batch_type
@@ -300,6 +308,7 @@ run_mode_headless() {
                 variants=$(get_prompt_variants "$batch_type" "$WORKTREE/logs/sampling-outcomes.json" "$SAMPLE_COUNT")
 
                 local c=0
+                local _winner_patch=""
                 while IFS= read -r variant_name; do
                     local variant_suffix=""
                     if [[ "$variant_name" != "vanilla" ]]; then
@@ -309,14 +318,12 @@ run_mode_headless() {
                     local candidate_log="$WORKTREE/logs/batch-${batch}-candidate-${c}.log"
                     candidate_logs+=("$candidate_log")
 
-                    # Restore clean state for each candidate (uses baseline stash, never winner stash)
-                    (cd "$WORKTREE" && git checkout . 2>/dev/null && { [[ "$_baseline_stash_created" == true ]] && git stash pop -q 2>/dev/null || true; } || true)
-                    local _inner_stash_before _inner_stash_after
-                    _inner_stash_before=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                    (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
-                    _inner_stash_after=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                    _baseline_stash_created=false
-                    [[ "$_inner_stash_after" -gt "$_inner_stash_before" ]] && _baseline_stash_created=true
+                    # Restore clean baseline for each candidate using the saved patch.
+                    # Reset tracked changes first, then re-apply the baseline diff.
+                    (cd "$WORKTREE" && git checkout . 2>/dev/null || true)
+                    if [[ -s "$_baseline_patch" ]]; then
+                        (cd "$WORKTREE" && git apply "$_baseline_patch" 2>/dev/null || true)
+                    fi
 
                     CLAUDECODE='' claude -p "${prompt}${variant_suffix}" \
                         --allowedTools "Bash,Read,Write,Edit,Grep,Glob" \
@@ -340,19 +347,17 @@ run_mode_headless() {
 
                     echo "  Candidate $c: score=$score (gate=$gate_passed, tests=${new_tests:-0})"
 
-                    # If gate failed, reset for next candidate
-                    if [[ $gate_passed -eq 0 ]]; then
-                        (cd "$WORKTREE" && git checkout . 2>/dev/null || true)
-                        _baseline_stash_created=false
-                    else
-                        # Stash the winning state so we can restore it (separate from baseline)
-                        local _win_stash_before _win_stash_after
-                        _win_stash_before=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                        (cd "$WORKTREE" && git stash -q 2>/dev/null || true)
-                        _win_stash_after=$(cd "$WORKTREE" && git stash list 2>/dev/null | wc -l)
-                        _winner_stash_created=false
-                        [[ "$_win_stash_after" -gt "$_win_stash_before" ]] && _winner_stash_created=true
+                    # Save winning candidate's state as a patch file for later restore.
+                    # Only the last passing candidate's patch is kept as the winner
+                    # (select_winner picks the highest score, which is last-wins on tie).
+                    if [[ $gate_passed -eq 1 ]]; then
+                        _winner_patch="/tmp/run-plan-winner-${batch}-${c}-$$.diff"
+                        (cd "$WORKTREE" && git diff > "$_winner_patch" 2>/dev/null || true)
                     fi
+
+                    # Reset worktree for next candidate iteration
+                    (cd "$WORKTREE" && git checkout . 2>/dev/null || true)
+
                     c=$((c + 1))
                 done <<< "$variants"
 
@@ -362,9 +367,10 @@ run_mode_headless() {
                 if [[ "$winner" -ge 0 ]]; then
                     echo "  Winner: candidate $winner (scores: $scores)"
 
-                    # Restore winner's stashed state (only if winner stash was actually created)
-                    if [[ "$_winner_stash_created" == true ]]; then
-                        (cd "$WORKTREE" && git stash pop -q 2>/dev/null || true)
+                    # Restore winner's patch — explicit named file, no LIFO ordering risk
+                    local _apply_patch="/tmp/run-plan-winner-${batch}-${winner}-$$.diff"
+                    if [[ -s "$_apply_patch" ]]; then
+                        (cd "$WORKTREE" && git apply "$_apply_patch" 2>/dev/null || true)
                     fi
 
                     # Log sampling outcome
@@ -385,11 +391,14 @@ run_mode_headless() {
                     break
                 else
                     echo "  No candidate passed quality gate"
-                    # Restore clean state (only if baseline stash was actually created)
-                    if [[ "$_baseline_stash_created" == true ]]; then
-                        (cd "$WORKTREE" && git stash pop -q 2>/dev/null || true)
+                    # Restore baseline state for the normal retry path
+                    if [[ -s "$_baseline_patch" ]]; then
+                        (cd "$WORKTREE" && git apply "$_baseline_patch" 2>/dev/null || true)
                     fi
                 fi
+
+                # Clean up temp patch files
+                rm -f "$_baseline_patch" /tmp/run-plan-winner-${batch}-*-$$.diff 2>/dev/null || true
 
                 continue  # Skip normal retry path below
             fi

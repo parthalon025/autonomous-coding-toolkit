@@ -94,6 +94,28 @@ else
     fail "Should report no files to check, got: $output"
 fi
 
+# --- Test 6b: stdin pipe detection — uses -p /dev/stdin not -t 0 (#34) ---
+# This prevents hanging when stdin is a socket (e.g. systemd/cron).
+# The fix: only read stdin when [[ -p /dev/stdin ]] (a named pipe), not
+# whenever [[ ! -t 0 ]] (which includes sockets that never send EOF).
+TESTS=$((TESTS + 1))
+if grep -q '\-p /dev/stdin' "$LESSON_CHECK"; then
+    echo "PASS: lesson-check uses -p /dev/stdin (pipe-safe, not socket-blocking)"
+else
+    echo "FAIL: lesson-check should use [[ -p /dev/stdin ]] not [[ ! -t 0 ]] for stdin detection (bug #34)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Verify the old ! -t 0 pattern is NOT present in executable code (it caused the socket hang).
+# Filter comment-only lines before checking.
+TESTS=$((TESTS + 1))
+if grep -v '^\s*#' "$LESSON_CHECK" | grep -q '! -t 0'; then
+    echo "FAIL: lesson-check still uses '! -t 0' in executable code, which blocks on socket stdin (bug #34)"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: lesson-check does not use '! -t 0' in executable code (socket-safe)"
+fi
+
 # --- Test 7: No grep -P in any script (portability) ---
 TESTS=$((TESTS + 1))
 # Scan for grep -P or grep -<flags>P usage in scripts/ (excluding comments)

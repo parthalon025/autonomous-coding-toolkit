@@ -87,9 +87,9 @@ fi
 echo "=== Quality Gate: Lesson Check ==="
 changed_files=$(git diff --name-only 2>/dev/null || true)
 if [[ -n "$changed_files" ]]; then
-    # Pass changed files as arguments (they're relative to project root, which is cwd)
-    # shellcheck disable=SC2086
-    if ! "$SCRIPT_DIR/lesson-check.sh" $changed_files; then
+    # Use an array to avoid word-splitting on filenames with spaces (#5).
+    readarray -t changed_array <<< "$changed_files"
+    if ! "$SCRIPT_DIR/lesson-check.sh" "${changed_array[@]}"; then
         echo ""
         echo "quality-gate: FAILED at lesson check"
         exit 1

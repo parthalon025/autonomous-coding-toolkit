@@ -156,6 +156,27 @@ assert_exit "check_test_count_regression: -1 previous skips check" 0 \
 git -C "$WORK" checkout -- file.txt
 
 # =============================================================================
+# Security: no eval in quality gate runner (#3)
+# =============================================================================
+
+TESTS=$((TESTS + 1))
+QG_FILE="$SCRIPT_DIR/../lib/run-plan-quality-gate.sh"
+if grep -q 'eval.*quality_gate_cmd\|eval.*\$quality_gate' "$QG_FILE"; then
+    echo "FAIL: run-plan-quality-gate.sh uses eval on quality_gate_cmd (command injection risk, bug #3)"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: run-plan-quality-gate.sh does not use eval on quality_gate_cmd"
+fi
+
+TESTS=$((TESTS + 1))
+if grep -q 'bash -c.*quality_gate_cmd\|bash -c.*\$quality_gate' "$QG_FILE"; then
+    echo "PASS: run-plan-quality-gate.sh uses bash -c instead of eval"
+else
+    echo "FAIL: run-plan-quality-gate.sh should use bash -c instead of eval (bug #3)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# =============================================================================
 # Summary
 # =============================================================================
 

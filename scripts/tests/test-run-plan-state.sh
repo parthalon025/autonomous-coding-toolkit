@@ -213,7 +213,7 @@ assert_eq "e2e: complete_batch 'final' then get_previous_test_count returns 99" 
 
 # --- Test: init_state includes costs object ---
 WORK_COST=$(mktemp -d)
-trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5" "$WORK6" "$WORK7" "$WORK_COST"' EXIT
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5" "$WORK6" "$WORK7" "$WORK_COST" "$WORK8"' EXIT
 init_state "$WORK_COST" "plan.md" "headless"
 
 val=$(jq -r '.costs | type' "$WORK_COST/.run-plan-state.json")
@@ -221,6 +221,36 @@ assert_eq "init_state: has costs object" "object" "$val"
 
 val=$(jq -r '.total_cost_usd' "$WORK_COST/.run-plan-state.json")
 assert_eq "init_state: total_cost_usd starts at 0" "0" "$val"
+
+# --- Test: set_quality_gate normalizes truthy values (#8) ---
+WORK8=$(mktemp -d)
+trap 'rm -rf "$WORK" "$WORK2" "$WORK3" "$WORK4" "$WORK5" "$WORK6" "$WORK7" "$WORK_COST" "$WORK8"' EXIT
+init_state "$WORK8" "plan.md" "headless"
+
+# "1" should normalize to true
+set_quality_gate "$WORK8" 1 "1" 10
+val=$(jq -r '.last_quality_gate.passed' "$WORK8/.run-plan-state.json")
+assert_eq "set_quality_gate: '1' normalizes to true" "true" "$val"
+
+# "0" should normalize to false
+set_quality_gate "$WORK8" 1 "0" 10
+val=$(jq -r '.last_quality_gate.passed' "$WORK8/.run-plan-state.json")
+assert_eq "set_quality_gate: '0' normalizes to false" "false" "$val"
+
+# "yes" should normalize to true
+set_quality_gate "$WORK8" 1 "yes" 10
+val=$(jq -r '.last_quality_gate.passed' "$WORK8/.run-plan-state.json")
+assert_eq "set_quality_gate: 'yes' normalizes to true" "true" "$val"
+
+# "no" should normalize to false
+set_quality_gate "$WORK8" 1 "no" 10
+val=$(jq -r '.last_quality_gate.passed' "$WORK8/.run-plan-state.json")
+assert_eq "set_quality_gate: 'no' normalizes to false" "false" "$val"
+
+# "random" should normalize to false
+set_quality_gate "$WORK8" 1 "random" 10
+val=$(jq -r '.last_quality_gate.passed' "$WORK8/.run-plan-state.json")
+assert_eq "set_quality_gate: 'random' normalizes to false" "false" "$val"
 
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

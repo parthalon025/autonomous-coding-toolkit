@@ -123,6 +123,30 @@ assert_eq "get_batch_text: empty batch returns empty" "" "$val"
 val=$(count_batches "$WORK/plan-empty.md")
 assert_eq "count_batches: counts all headers including empty" "3" "$val"
 
+# === Bug #4: CLAUDE.md Run-Plan section removal uses awk not sed ===
+# The sed range deletion pattern '/^## Run-Plan:/,/^## [^R]/' has no terminating
+# anchor when Run-Plan is the last section, so it deletes from Run-Plan to EOF.
+# The fix replaces it with awk which handles last-section correctly.
+
+TESTS=$((TESTS + 1))
+# awk should be used for section removal; the old sed range pattern should not be present
+if grep -q "awk" "$RPH" && grep -q 'in_section' "$RPH"; then
+    echo "PASS: CLAUDE.md section removal uses awk (last-section safe, bug #4)"
+else
+    echo "FAIL: CLAUDE.md section removal should use awk to handle last section correctly (bug #4)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+TESTS=$((TESTS + 1))
+# The old broken sed range pattern must not be present
+if grep -q "sed '/\^## Run-Plan:/,/\^## \[^R\]/" "$RPH" 2>/dev/null || \
+   grep -q "sed '/\^\#\# Run-Plan:/,/\^\#\# \[^R\]" "$RPH" 2>/dev/null; then
+    echo "FAIL: Old sed range deletion pattern still present (unbounded at last section, bug #4)"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: Old unbounded sed range deletion pattern removed"
+fi
+
 # === Bug #16/#28: SAMPLE_COUNT resets at top of batch loop using SAMPLE_DEFAULT ===
 
 # User's --sample value must be preserved into SAMPLE_DEFAULT before the loop
@@ -144,58 +168,47 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
-# === Bug #27: Stash pop guarded by stash creation check ===
+# === Bug #2/#27: Sampling block uses patch files instead of stash ===
+# The fix replaced git stash/pop with git diff > patch + git apply to
+# eliminate LIFO ordering issues. These tests verify the new approach.
 
-# The initial stash should track before/after count
+# Baseline state must be saved as a patch file (not stash)
 TESTS=$((TESTS + 1))
-if grep -q '_stash_before.*git stash list' "$RPH" && grep -q '_stash_after.*git stash list' "$RPH"; then
-    echo "PASS: Stash tracks before/after count to detect no-op"
+if grep -q '_baseline_patch' "$RPH"; then
+    echo "PASS: Sampling block saves baseline state as a patch file"
 else
-    echo "FAIL: Stash should track before/after count to detect no-op stash (bug #27)"
+    echo "FAIL: Sampling block should save baseline state as a patch file (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 
-# Stash flags must be split: _baseline_stash_created for per-candidate restore, _winner_stash_created for final restore
+# Winner state must be saved as a patch file (not stash)
 TESTS=$((TESTS + 1))
-if grep -q '_baseline_stash_created' "$RPH" && grep -q '_winner_stash_created' "$RPH"; then
-    echo "PASS: Stash flags split into _baseline_stash_created and _winner_stash_created"
+if grep -q '_winner_patch\|run-plan-winner' "$RPH"; then
+    echo "PASS: Sampling block saves winner state as a patch file"
 else
-    echo "FAIL: Stash flags should be split into _baseline_stash_created and _winner_stash_created"
+    echo "FAIL: Sampling block should save winner state as a patch file (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 
-# The old conflated _stash_created flag must not exist (except inside variable names like _baseline_stash_created)
-TESTS=$((TESTS + 1))
-# Match bare _stash_created (not preceded by baseline_ or winner_)
-# Use grep -E + grep -v instead of PCRE lookbehind for macOS portability
-bare_stash=$(grep -E '_stash_created' "$RPH" | grep -Ev '(baseline|winner)_stash_created' || true)
-if [[ -z "$bare_stash" ]]; then
-    echo "PASS: No bare _stash_created flag remains (all are baseline or winner prefixed)"
-else
-    echo "FAIL: Found bare _stash_created — should be _baseline_stash_created or _winner_stash_created"
-    FAILURES=$((FAILURES + 1))
-fi
-
-# All git stash pop calls in the sampling block must be guarded by a stash_created check
+# No executable git stash usage remaining in sampling block (patch approach replaces it).
+# Filter out comment lines (lines starting with optional whitespace + #).
 TESTS=$((TESTS + 1))
 sampling_block=$(sed -n '/If sampling enabled/,/continue.*Skip normal retry/p' "$RPH")
-total_pops=$(echo "$sampling_block" | grep -c 'git stash pop' || true)
-# Check: every stash pop line has _stash_created on same line OR on the if-line directly above
-unguarded=0
-while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-    if ! echo "$line" | grep -q '_stash_created'; then
-        unguarded=$((unguarded + 1))
-    fi
-done <<< "$(echo "$sampling_block" | grep 'git stash pop')"
-# Also count block-guarded pops (stash pop on its own line, but inside if _stash_created block)
-block_guarded=$(echo "$sampling_block" | grep -B1 'git stash pop' | grep -c '_stash_created' || true)
-effective_unguarded=$((unguarded - block_guarded))
-[[ $effective_unguarded -lt 0 ]] && effective_unguarded=0
-if [[ "$effective_unguarded" -eq 0 ]]; then
-    echo "PASS: All git stash pop calls in sampling block are guarded ($total_pops total)"
+# Strip comment-only lines before counting stash calls
+stash_uses=$(echo "$sampling_block" | grep -v '^\s*#' | grep -c 'git stash' || true)
+if [[ "$stash_uses" -eq 0 ]]; then
+    echo "PASS: No git stash calls in sampling block (replaced by patch approach)"
 else
-    echo "FAIL: Found $effective_unguarded unguarded git stash pop in sampling block ($total_pops total, bug #27)"
+    echo "FAIL: Found $stash_uses git stash call(s) in sampling block — should use patch files (bug #2/#27)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Restore of winner uses git apply (patch approach)
+TESTS=$((TESTS + 1))
+if echo "$sampling_block" | grep -q 'git apply'; then
+    echo "PASS: Sampling block uses git apply to restore winner state"
+else
+    echo "FAIL: Sampling block should use git apply to restore winner state (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 

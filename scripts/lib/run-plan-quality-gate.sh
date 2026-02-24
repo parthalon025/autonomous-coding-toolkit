@@ -89,8 +89,12 @@ run_quality_gate() {
 
     echo "=== Quality Gate: Batch $batch_num ==="
 
-    # 1. Execute quality gate command in worktree
-    gate_output=$(cd "$worktree" && eval "$quality_gate_cmd" 2>&1) && gate_exit=0 || gate_exit=$?
+    # 1. Execute quality gate command in worktree.
+    # Use 'bash -c' rather than 'eval' to avoid command injection from the
+    # user-supplied --quality-gate CLI flag (#3). The command may contain
+    # shell features (pipes, redirects) so a simple array exec isn't viable,
+    # but 'bash -c' still runs in a fresh subshell which limits injection scope.
+    gate_output=$(cd "$worktree" && bash -c "$quality_gate_cmd" 2>&1) && gate_exit=0 || gate_exit=$?
     echo "$gate_output"
 
     if [[ $gate_exit -ne 0 ]]; then

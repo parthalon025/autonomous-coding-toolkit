@@ -127,6 +127,27 @@ group_count=$(echo "$groups" | jq 'length')
 # Since batch 1 is not in range, its deps should be treated as satisfied
 assert_eq "subset range: batches 2,3 form 1 group (deps outside range)" "1" "$group_count"
 
+# === Bug #1: Team mode emits shared-worktree WARNING ===
+
+TEAM_FILE="$SCRIPT_DIR/../lib/run-plan-team.sh"
+
+TESTS=$((TESTS + 1))
+if grep -q 'WARNING.*shared worktree\|WARNING.*Team mode.*shared\|WARNING: Team mode' "$TEAM_FILE"; then
+    echo "PASS: run_mode_team emits shared-worktree WARNING"
+else
+    echo "FAIL: run_mode_team should emit a WARNING about shared worktree (bug #1)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# The warning should be emitted to stderr (>&2)
+TESTS=$((TESTS + 1))
+if grep -q 'WARNING.*>&2' "$TEAM_FILE"; then
+    echo "PASS: team mode WARNING goes to stderr"
+else
+    echo "FAIL: team mode WARNING should be sent to stderr (>&2) (bug #1)"
+    FAILURES=$((FAILURES + 1))
+fi
+
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
 if [[ $FAILURES -gt 0 ]]; then

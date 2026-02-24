@@ -13,8 +13,11 @@ _load_telegram_env() {
         return 1
     fi
 
-    TELEGRAM_BOT_TOKEN=$(grep -E '^(export )?TELEGRAM_BOT_TOKEN=' "$env_file" | head -1 | sed 's/^export //' | cut -d= -f2-)
-    TELEGRAM_CHAT_ID=$(grep -E '^(export )?TELEGRAM_CHAT_ID=' "$env_file" | head -1 | sed 's/^export //' | cut -d= -f2-)
+    # Extract values and strip surrounding single or double quotes (#7).
+    # .env files may store values as TELEGRAM_BOT_TOKEN="abc123" or
+    # TELEGRAM_BOT_TOKEN='abc123' — the cut captures the raw quoted string.
+    TELEGRAM_BOT_TOKEN=$(grep -E '^(export )?TELEGRAM_BOT_TOKEN=' "$env_file" | head -1 | sed 's/^export //' | cut -d= -f2- | sed "s/^['\"]//; s/['\"]$//")
+    TELEGRAM_CHAT_ID=$(grep -E '^(export )?TELEGRAM_CHAT_ID=' "$env_file" | head -1 | sed 's/^export //' | cut -d= -f2- | sed "s/^['\"]//; s/['\"]$//")
 
     if [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TELEGRAM_CHAT_ID:-}" ]]; then
         echo "WARNING: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not found in $env_file" >&2

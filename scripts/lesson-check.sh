@@ -128,7 +128,12 @@ violations=0
 files=()
 if [[ $# -gt 0 ]]; then
     files=("$@")
-elif [[ ! -t 0 ]]; then
+elif [[ -p /dev/stdin ]]; then
+    # stdin is a named pipe (shell pipe) — safe to read without blocking.
+    # Using [[ -p /dev/stdin ]] instead of [[ ! -t 0 ]] avoids hanging when
+    # stdin is a socket (e.g. systemd/cron), which satisfies ! -t 0 but
+    # never sends EOF (#34). A socket is not a pipe, so -p /dev/stdin is false
+    # and we fall through to the git diff fallback instead of blocking forever.
     while IFS= read -r f; do
         [[ -n "$f" ]] && files+=("$f")
     done

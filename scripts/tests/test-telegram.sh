@@ -72,6 +72,39 @@ assert_exit "_load_telegram_env: valid file returns 0" 0 \
 assert_eq "_load_telegram_env: token loaded" "test-token-123" "$TELEGRAM_BOT_TOKEN"
 assert_eq "_load_telegram_env: chat_id loaded" "test-chat-456" "$TELEGRAM_CHAT_ID"
 
+# === Quote stripping (#7): values wrapped in double quotes ===
+
+cat > "$WORK/quoted-double.env" << 'ENVFILE'
+TELEGRAM_BOT_TOKEN="quoted-token-abc"
+TELEGRAM_CHAT_ID="quoted-chat-def"
+ENVFILE
+assert_exit "_load_telegram_env: double-quoted values returns 0" 0 \
+    _load_telegram_env "$WORK/quoted-double.env"
+assert_eq "_load_telegram_env: double-quoted token stripped" "quoted-token-abc" "$TELEGRAM_BOT_TOKEN"
+assert_eq "_load_telegram_env: double-quoted chat_id stripped" "quoted-chat-def" "$TELEGRAM_CHAT_ID"
+
+# === Quote stripping (#7): values wrapped in single quotes ===
+
+cat > "$WORK/quoted-single.env" << 'ENVFILE'
+TELEGRAM_BOT_TOKEN='single-token-ghi'
+TELEGRAM_CHAT_ID='single-chat-jkl'
+ENVFILE
+assert_exit "_load_telegram_env: single-quoted values returns 0" 0 \
+    _load_telegram_env "$WORK/quoted-single.env"
+assert_eq "_load_telegram_env: single-quoted token stripped" "single-token-ghi" "$TELEGRAM_BOT_TOKEN"
+assert_eq "_load_telegram_env: single-quoted chat_id stripped" "single-chat-jkl" "$TELEGRAM_CHAT_ID"
+
+# === Quote stripping (#7): export with double quotes ===
+
+cat > "$WORK/export-quoted.env" << 'ENVFILE'
+export TELEGRAM_BOT_TOKEN="export-quoted-mno"
+export TELEGRAM_CHAT_ID="export-quoted-pqr"
+ENVFILE
+assert_exit "_load_telegram_env: export double-quoted returns 0" 0 \
+    _load_telegram_env "$WORK/export-quoted.env"
+assert_eq "_load_telegram_env: export double-quoted token stripped" "export-quoted-mno" "$TELEGRAM_BOT_TOKEN"
+assert_eq "_load_telegram_env: export double-quoted chat_id stripped" "export-quoted-pqr" "$TELEGRAM_CHAT_ID"
+
 # === _send_telegram without credentials ===
 
 unset TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID
