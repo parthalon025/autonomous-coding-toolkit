@@ -66,15 +66,16 @@ if git show "$REMOTE/main:logs/strategy-perf.json" > /dev/null 2>&1; then
             local_data=$(cat "$local_perf")
             remote_data=$(git show "$REMOTE/main:logs/strategy-perf.json" 2>/dev/null)
 
-            # Merge: add upstream wins/losses to local
+            # Merge: take max(local, upstream) per counter — idempotent on repeated pulls
             tmp=$(mktemp)
             echo "$local_data" | jq --argjson remote "$remote_data" '
+                def max(a; b): if a > b then a else b end;
                 . as $local |
                 ["new-file", "refactoring", "integration", "test-only"] | reduce .[] as $bt ($local;
-                    .[$bt].superpowers.wins += ($remote[$bt].superpowers.wins // 0) |
-                    .[$bt].superpowers.losses += ($remote[$bt].superpowers.losses // 0) |
-                    .[$bt].ralph.wins += ($remote[$bt].ralph.wins // 0) |
-                    .[$bt].ralph.losses += ($remote[$bt].ralph.losses // 0)
+                    .[$bt].superpowers.wins = max(.[$bt].superpowers.wins; $remote[$bt].superpowers.wins // 0) |
+                    .[$bt].superpowers.losses = max(.[$bt].superpowers.losses; $remote[$bt].superpowers.losses // 0) |
+                    .[$bt].ralph.wins = max(.[$bt].ralph.wins; $remote[$bt].ralph.wins // 0) |
+                    .[$bt].ralph.losses = max(.[$bt].ralph.losses; $remote[$bt].ralph.losses // 0)
                 )
             ' > "$tmp" && mv "$tmp" "$local_perf"
             echo "  Merged strategy-perf.json"

@@ -338,8 +338,11 @@ merge_winner() {
     local winner_wt
     if [[ "$winner" == "agent-a" ]]; then
         winner_wt="$wt_a"
-    else
+    elif [[ "$winner" == "agent-b" ]]; then
         winner_wt="$wt_b"
+    else
+        echo "ERROR: merge_winner called with unexpected winner='$winner'" >&2
+        return 1
     fi
 
     # Commit winner's changes in their worktree
@@ -387,7 +390,7 @@ update_mab_data() {
         jq --arg p "$lesson" --arg ctx "$batch_type" --arg w "$winner_strategy" '
             # Check if pattern already exists
             if [.[] | select(.pattern == $p)] | length > 0 then
-                [.[] | if .pattern == $p then .occurrences += 1 | .last_seen = now | tostring else . end]
+                [.[] | if .pattern == $p then .occurrences += 1 | .last_seen = (now | tostring) else . end]
             else
                 . + [{"pattern": $p, "context": $ctx, "winner": $w, "occurrences": 1, "last_seen": (now | tostring), "promoted": false}]
             end

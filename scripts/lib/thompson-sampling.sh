@@ -27,11 +27,12 @@ thompson_sample() {
     local alpha=$((wins + 1))
     local beta=$((losses + 1))
 
-    # Use /dev/urandom for a pseudo-normal via central limit theorem
-    # Sum 12 uniform [0,1) values, subtract 6 → approx N(0,1)
+    # Use central limit theorem for a pseudo-normal: sum 12 uniform [0,1), subtract 6 → approx N(0,1).
+    # Seed with bash $RANDOM + PID — PROCINFO["pid"] is gawk-only, mawk silently ignores it,
+    # producing identical samples within the same second (kills Thompson Sampling).
     local noise
-    noise=$(awk 'BEGIN {
-        srand(systime() + PROCINFO["pid"]);
+    noise=$(awk -v seed="$((RANDOM + $$))" 'BEGIN {
+        srand(systime() * 1000 + seed);
         s = 0;
         for (i = 0; i < 12; i++) s += rand();
         printf "%.6f", s - 6;

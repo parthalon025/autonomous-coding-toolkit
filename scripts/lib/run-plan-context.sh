@@ -61,6 +61,8 @@ generate_batch_context() {
         fi
     fi
 
+    chars_used=${#context}
+
     # 2.5. MAB lessons (from competing agent runs)
     local mab_lessons_file="$worktree/logs/mab-lessons.json"
     if [[ -f "$mab_lessons_file" ]]; then
@@ -79,8 +81,6 @@ generate_batch_context() {
             fi
         fi
     fi
-
-    chars_used=${#context}
 
     # 3. Context refs file contents (if budget allows)
     local refs

@@ -238,6 +238,10 @@ run_mode_headless() {
             continue
         fi
 
+        # Declare batch_passed before MAB routing — the MAB `continue` path
+        # skips the retry loop where it was originally declared (#4A review).
+        local batch_passed=false
+
         # MAB routing (when --mab flag set)
         if [[ "${MAB:-false}" == "true" ]]; then
             local batch_type_for_route
@@ -329,7 +333,6 @@ run_mode_headless() {
 
         local max_attempts=$((MAX_RETRIES + 1))
         local attempt=0
-        local batch_passed=false
 
         while [[ $attempt -lt $max_attempts ]]; do
             attempt=$((attempt + 1))
