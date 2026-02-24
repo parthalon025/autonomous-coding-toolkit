@@ -77,32 +77,34 @@ while IFS= read -r line; do
     slug=$(slugify "$pattern")
     filename=$(printf "%04d-%s.md" "$num" "$slug")
 
-    cat > "$LESSONS_DIR/$filename" <<LESSON
----
-pattern: "$pattern"
-context: $context
-winning_strategy: $winner
-occurrences: $occurrences
-source: mab-auto-promoted
-promoted_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
----
-
-# $pattern
-
-**Context:** $context batch type
-**Winning strategy:** $winner
-**Occurrences:** $occurrences competing runs
-
-## Description
-
-This pattern was automatically promoted from MAB competing agent runs.
-The $winner strategy consistently produced better results when this
-pattern was followed.
-
-## Recommendation
-
-Apply this pattern when working on $context batches.
-LESSON
+    promoted_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # Use printf to avoid shell expansion of LLM-sourced variables (security)
+    printf '%s\n' \
+        "---" \
+        "pattern: \"$pattern\"" \
+        "context: $context" \
+        "winning_strategy: $winner" \
+        "occurrences: $occurrences" \
+        "source: mab-auto-promoted" \
+        "promoted_at: $promoted_at" \
+        "---" \
+        "" \
+        "# $pattern" \
+        "" \
+        "**Context:** $context batch type" \
+        "**Winning strategy:** $winner" \
+        "**Occurrences:** $occurrences competing runs" \
+        "" \
+        "## Description" \
+        "" \
+        "This pattern was automatically promoted from MAB competing agent runs." \
+        "The $winner strategy consistently produced better results when this" \
+        "pattern was followed." \
+        "" \
+        "## Recommendation" \
+        "" \
+        "Apply this pattern when working on $context batches." \
+        > "$LESSONS_DIR/$filename"
 
     echo "  Promoted: $filename"
     promoted=$((promoted + 1))

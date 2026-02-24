@@ -24,10 +24,10 @@ route_missing=$(thompson_route "new-file" "/tmp/nonexistent-perf-$$.json")
 assert_eq "missing perf file → mab" "mab" "$route_missing"
 
 # --- Test: thompson_route returns "mab" when type has < 5 data points ---
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+TEST_TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
-cat > "$TMPDIR/perf.json" <<'JSON'
+cat > "$TEST_TMPDIR/perf.json" <<'JSON'
 {
   "new-file": {"superpowers": {"wins": 2, "losses": 1}, "ralph": {"wins": 1, "losses": 0}},
   "refactoring": {"superpowers": {"wins": 0, "losses": 0}, "ralph": {"wins": 0, "losses": 0}},
@@ -38,11 +38,11 @@ cat > "$TMPDIR/perf.json" <<'JSON'
 }
 JSON
 
-route_few=$(thompson_route "new-file" "$TMPDIR/perf.json")
+route_few=$(thompson_route "new-file" "$TEST_TMPDIR/perf.json")
 assert_eq "< 5 data points → mab" "mab" "$route_few"
 
 # --- Test: thompson_route returns "mab" for integration type (always explore) ---
-cat > "$TMPDIR/perf-int.json" <<'JSON'
+cat > "$TEST_TMPDIR/perf-int.json" <<'JSON'
 {
   "new-file": {"superpowers": {"wins": 10, "losses": 2}, "ralph": {"wins": 3, "losses": 9}},
   "refactoring": {"superpowers": {"wins": 10, "losses": 2}, "ralph": {"wins": 3, "losses": 9}},
@@ -53,7 +53,7 @@ cat > "$TMPDIR/perf-int.json" <<'JSON'
 }
 JSON
 
-route_int=$(thompson_route "integration" "$TMPDIR/perf-int.json")
+route_int=$(thompson_route "integration" "$TEST_TMPDIR/perf-int.json")
 assert_eq "integration type → always mab" "mab" "$route_int"
 
 # --- Test: thompson_route returns winning strategy with strong signal ---
@@ -62,7 +62,7 @@ assert_eq "integration type → always mab" "mab" "$route_int"
 # Run 10 times and check majority goes to superpowers
 superpowers_count=0
 for i in $(seq 1 10); do
-    result=$(thompson_route "new-file" "$TMPDIR/perf-int.json")
+    result=$(thompson_route "new-file" "$TEST_TMPDIR/perf-int.json")
     if [[ "$result" == "superpowers" ]]; then
         superpowers_count=$((superpowers_count + 1))
     fi
@@ -77,7 +77,7 @@ else
 fi
 
 # --- Test: init_strategy_perf creates valid JSON ---
-init_file="$TMPDIR/init-perf.json"
+init_file="$TEST_TMPDIR/init-perf.json"
 init_strategy_perf "$init_file"
 
 TESTS=$((TESTS + 1))
@@ -102,7 +102,7 @@ has_cal_complete=$(jq 'has("calibration_complete")' "$init_file" 2>/dev/null)
 assert_eq "init has calibration_complete" "true" "$has_cal_complete"
 
 # --- Test: update_strategy_perf increments wins/losses ---
-update_file="$TMPDIR/update-perf.json"
+update_file="$TEST_TMPDIR/update-perf.json"
 init_strategy_perf "$update_file"
 
 # Superpowers wins a new-file batch

@@ -239,7 +239,7 @@ run_agents_parallel() {
 run_gate_on_agent() {
     local agent_wt="$1" agent_name="$2"
     local gate_exit=0
-    (cd "$agent_wt" && eval "$MAB_QUALITY_GATE") > "$MAB_WORKTREE/logs/mab-gate-${agent_name}.log" 2>&1 || gate_exit=$?
+    (cd "$agent_wt" && bash -c "$MAB_QUALITY_GATE") > "$MAB_WORKTREE/logs/mab-gate-${agent_name}.log" 2>&1 || gate_exit=$?
     echo "  Gate $agent_name: exit=$gate_exit"
     return $gate_exit
 }

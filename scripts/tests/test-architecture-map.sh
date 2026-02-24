@@ -12,39 +12,39 @@ assert_exit "--help exits 0" 0 "$ARCH_MAP" --help
 assert_contains "--help mentions ARCHITECTURE-MAP.json" "ARCHITECTURE-MAP.json" "$help_output"
 
 # --- Test: generates valid JSON from a temp project ---
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+TEST_TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
 # Create a minimal project with shell + python files
-mkdir -p "$TMPDIR/lib" "$TMPDIR/src"
-cat > "$TMPDIR/main.sh" <<'SH'
+mkdir -p "$TEST_TMPDIR/lib" "$TEST_TMPDIR/src"
+cat > "$TEST_TMPDIR/main.sh" <<'SH'
 #!/usr/bin/env bash
 source lib/helpers.sh
 echo "hello"
 SH
-cat > "$TMPDIR/lib/helpers.sh" <<'SH'
+cat > "$TEST_TMPDIR/lib/helpers.sh" <<'SH'
 #!/usr/bin/env bash
 helper_func() { echo "help"; }
 SH
-cat > "$TMPDIR/src/app.py" <<'PY'
+cat > "$TEST_TMPDIR/src/app.py" <<'PY'
 from src.utils import do_thing
 import os
 
 def main():
     do_thing()
 PY
-cat > "$TMPDIR/src/utils.py" <<'PY'
+cat > "$TEST_TMPDIR/src/utils.py" <<'PY'
 def do_thing():
     pass
 PY
 
 # Run architecture-map on the temp project
 map_exit=0
-"$ARCH_MAP" --project-root "$TMPDIR" > /dev/null 2>&1 || map_exit=$?
+"$ARCH_MAP" --project-root "$TEST_TMPDIR" > /dev/null 2>&1 || map_exit=$?
 assert_eq "generates map exit 0" "0" "$map_exit"
 
 # Check output file exists
-output_file="$TMPDIR/docs/ARCHITECTURE-MAP.json"
+output_file="$TEST_TMPDIR/docs/ARCHITECTURE-MAP.json"
 TESTS=$((TESTS + 1))
 if [[ -f "$output_file" ]]; then
     echo "PASS: creates docs/ARCHITECTURE-MAP.json"

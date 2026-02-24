@@ -10,10 +10,10 @@ PULL="$SCRIPT_DIR/../pull-community-lessons.sh"
 assert_exit "--help exits 0" 0 "$PULL" --help
 
 # --- Test: missing upstream remote exits 1 gracefully ---
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+TEST_TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
-cd "$TMPDIR" && git init -q && git commit --allow-empty -m "init" -q
+cd "$TEST_TMPDIR" && git init -q && git commit --allow-empty -m "init" -q
 pull_output=$("$PULL" --remote nonexistent 2>&1) || true
 pull_exit=0
 "$PULL" --remote nonexistent > /dev/null 2>&1 || pull_exit=$?
