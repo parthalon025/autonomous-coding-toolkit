@@ -3,6 +3,7 @@ id: 15
 title: "Frontend-backend schema drift invisible until e2e trace"
 severity: should-fix
 languages: [typescript, javascript, python, all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

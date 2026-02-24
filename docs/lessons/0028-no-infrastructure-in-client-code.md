@@ -3,6 +3,7 @@ id: 28
 title: "Never embed infrastructure details in client-side code"
 severity: blocker
 languages: [javascript, typescript]
+scope: [universal]
 category: silent-failures
 pattern:
   type: syntactic

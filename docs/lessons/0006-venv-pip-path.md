@@ -3,6 +3,7 @@ id: 6
 title: ".venv/bin/pip installs to wrong site-packages"
 severity: should-fix
 languages: [python, shell]
+scope: [language:python, framework:pytest]
 category: integration-boundaries
 pattern:
   type: syntactic

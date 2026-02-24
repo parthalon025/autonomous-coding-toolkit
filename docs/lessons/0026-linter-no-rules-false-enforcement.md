@@ -3,6 +3,7 @@ id: 26
 title: "Linter with no rules enabled = false enforcement"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: silent-failures
 pattern:
   type: semantic

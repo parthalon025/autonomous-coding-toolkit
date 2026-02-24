@@ -3,6 +3,7 @@ id: 0040
 title: "Process all events when 5% are relevant -- filter first"
 severity: should-fix
 languages: [all]
+scope: [domain:ha-aria]
 category: performance
 pattern:
   type: semantic

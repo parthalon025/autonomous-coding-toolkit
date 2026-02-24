@@ -3,6 +3,7 @@ id: 0047
 title: "pytest runs single-threaded by default -- add xdist"
 severity: should-fix
 languages: [python]
+scope: [framework:pytest]
 category: performance
 pattern:
   type: semantic

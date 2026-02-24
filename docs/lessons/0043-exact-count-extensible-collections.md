@@ -3,6 +3,7 @@ id: 0043
 title: "Exact count assertions on extensible collections break on addition"
 severity: should-fix
 languages: [python, javascript, all]
+scope: [universal]
 category: test-anti-patterns
 pattern:
   type: syntactic

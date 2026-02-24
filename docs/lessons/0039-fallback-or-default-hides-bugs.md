@@ -3,6 +3,7 @@ id: 0039
 title: "Fallback `or default()` hides initialization bugs"
 severity: should-fix
 languages: [python]
+scope: [language:python]
 category: silent-failures
 pattern:
   type: semantic

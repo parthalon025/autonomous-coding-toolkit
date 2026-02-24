@@ -3,6 +3,7 @@ id: 0048
 title: "Multi-batch plans need explicit integration wiring batch"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

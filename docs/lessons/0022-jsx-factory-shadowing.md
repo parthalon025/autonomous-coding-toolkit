@@ -3,6 +3,7 @@ id: 22
 title: "Build tool JSX factory shadowed by arrow params"
 severity: blocker
 languages: [javascript, typescript]
+scope: [framework:preact]
 category: silent-failures
 pattern:
   type: syntactic

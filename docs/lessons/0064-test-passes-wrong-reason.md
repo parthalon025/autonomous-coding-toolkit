@@ -3,6 +3,7 @@ id: 64
 title: "Tests that pass for the wrong reason provide false confidence"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: test-anti-patterns
 pattern:
   type: syntactic

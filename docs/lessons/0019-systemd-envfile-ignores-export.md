@@ -3,6 +3,7 @@ id: 19
 title: "systemd EnvironmentFile ignores `export` keyword"
 severity: should-fix
 languages: [shell]
+scope: [framework:systemd]
 category: silent-failures
 pattern:
   type: syntactic

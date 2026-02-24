@@ -3,6 +3,7 @@ id: 9
 title: "Plan parser over-count burns empty API calls"
 severity: should-fix
 languages: [shell, all]
+scope: [project:autonomous-coding-toolkit]
 category: silent-failures
 pattern:
   type: semantic

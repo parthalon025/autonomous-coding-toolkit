@@ -3,6 +3,7 @@ id: 61
 title: "Context injection into tracked files creates dirty git state when subprocess commits"
 severity: should-fix
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: integration-boundaries
 pattern:
   type: semantic

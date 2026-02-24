@@ -3,6 +3,7 @@ id: 3
 title: "asyncio.create_task without done_callback swallows exceptions"
 severity: should-fix
 languages: [python]
+scope: [language:python]
 category: silent-failures
 pattern:
   type: semantic

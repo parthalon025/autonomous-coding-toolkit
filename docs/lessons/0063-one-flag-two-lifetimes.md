@@ -3,6 +3,7 @@ id: 63
 title: "One boolean flag serving two lifetimes is a conflation bug"
 severity: should-fix
 languages: [shell, python, javascript]
+scope: [universal]
 category: silent-failures
 pattern:
   type: semantic

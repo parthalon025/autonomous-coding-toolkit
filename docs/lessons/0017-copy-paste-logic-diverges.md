@@ -3,6 +3,7 @@ id: 17
 title: "Copy-pasted logic between modules diverges silently"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

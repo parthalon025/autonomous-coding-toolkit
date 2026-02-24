@@ -3,6 +3,7 @@ id: 0041
 title: "Ambiguous base dir variable causes path double-nesting"
 severity: should-fix
 languages: [python, shell, all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

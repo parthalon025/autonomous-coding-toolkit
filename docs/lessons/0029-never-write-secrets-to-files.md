@@ -3,6 +3,7 @@ id: 29
 title: "Never write secret values into committed files"
 severity: blocker
 languages: [all]
+scope: [universal]
 category: silent-failures
 pattern:
   type: syntactic

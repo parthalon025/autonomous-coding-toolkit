@@ -3,6 +3,7 @@ id: 2
 title: "async def without await returns truthy coroutine"
 severity: blocker
 languages: [python]
+scope: [language:python]
 category: async-traps
 pattern:
   type: semantic

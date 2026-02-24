@@ -3,6 +3,7 @@ id: 52
 title: "Uncommitted changes from parallel work fail the quality gate git-clean check"
 severity: blocker
 languages: [shell]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

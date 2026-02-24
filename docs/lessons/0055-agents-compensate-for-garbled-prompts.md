@@ -3,6 +3,7 @@ id: 55
 title: "LLM agents compensate for garbled batch prompts using cross-batch context"
 severity: nice-to-have
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 27
 title: "JSX silently drops wrong prop names"
 severity: should-fix
 languages: [javascript, typescript]
+scope: [framework:preact]
 category: silent-failures
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 67
 title: "Scripts hang when stdin is a socket or pipe in non-interactive shells"
 severity: should-fix
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: silent-failures
 pattern:
   type: semantic

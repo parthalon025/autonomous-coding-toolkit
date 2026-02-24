@@ -3,6 +3,7 @@ id: 33
 title: "Async iteration over mutable collections needs snapshot"
 severity: blocker
 languages: [python]
+scope: [language:python]
 category: async-traps
 pattern:
   type: syntactic

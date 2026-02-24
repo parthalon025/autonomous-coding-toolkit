@@ -3,6 +3,7 @@ id: 20
 title: "Persist state incrementally before expensive work"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: silent-failures
 pattern:
   type: semantic

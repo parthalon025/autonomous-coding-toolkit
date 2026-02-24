@@ -3,6 +3,7 @@ id: 30
 title: "Cache/registry updates must merge, never replace"
 severity: should-fix
 languages: [python, javascript, all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

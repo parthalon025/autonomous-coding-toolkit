@@ -3,6 +3,7 @@ id: 5
 title: "sqlite3 connections leak without closing() context manager"
 severity: should-fix
 languages: [python]
+scope: [language:python]
 category: silent-failures
 pattern:
   type: syntactic

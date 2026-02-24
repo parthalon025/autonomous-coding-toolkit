@@ -3,6 +3,7 @@ id: 0049
 title: "A/B verification finds zero-overlap bug classes"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

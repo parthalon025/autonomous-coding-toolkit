@@ -3,6 +3,7 @@ id: 18
 title: "Every layer passes its test while full pipeline is broken"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

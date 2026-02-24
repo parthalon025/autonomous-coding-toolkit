@@ -3,6 +3,7 @@ id: 0037
 title: "Parallel agents sharing worktree corrupt staging area"
 severity: blocker
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 32
 title: "Module lifecycle: subscribe after init gate, unsubscribe on shutdown"
 severity: should-fix
 languages: [python, javascript]
+scope: [universal]
 category: resource-lifecycle
 pattern:
   type: semantic

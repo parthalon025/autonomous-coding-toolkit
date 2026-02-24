@@ -3,6 +3,7 @@ id: 14
 title: "Decorator registries are import-time side effects"
 severity: should-fix
 languages: [python]
+scope: [language:python]
 category: silent-failures
 pattern:
   type: semantic

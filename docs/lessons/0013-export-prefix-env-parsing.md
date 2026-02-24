@@ -3,6 +3,7 @@ id: 13
 title: "`export` prefix in env files breaks naive parsing"
 severity: should-fix
 languages: [shell]
+scope: [language:bash]
 category: silent-failures
 pattern:
   type: syntactic

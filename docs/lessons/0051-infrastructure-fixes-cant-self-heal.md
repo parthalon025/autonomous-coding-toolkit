@@ -3,6 +3,7 @@ id: 51
 title: "Infrastructure fixes in a plan cannot benefit the run executing that plan"
 severity: should-fix
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: integration-boundaries
 pattern:
   type: semantic

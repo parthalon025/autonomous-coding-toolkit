@@ -3,6 +3,7 @@ id: 0042
 title: "Spec compliance without quality review misses defensive gaps"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

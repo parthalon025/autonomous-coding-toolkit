@@ -3,6 +3,7 @@ id: 34
 title: "Caller-side missing await silently discards work"
 severity: blocker
 languages: [python, javascript]
+scope: [universal]
 category: async-traps
 pattern:
   type: semantic

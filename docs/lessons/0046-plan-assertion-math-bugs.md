@@ -3,6 +3,7 @@ id: 0046
 title: "Plan-specified test assertions can have math bugs"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: test-anti-patterns
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 50
 title: "Editing files sourced by a running process breaks function signatures"
 severity: blocker
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: integration-boundaries
 pattern:
   type: semantic

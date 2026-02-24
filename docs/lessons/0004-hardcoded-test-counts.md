@@ -3,6 +3,7 @@ id: 4
 title: "Hardcoded count assertions break when datasets grow"
 severity: should-fix
 languages: [python, javascript, typescript]
+scope: [universal]
 category: test-anti-patterns
 pattern:
   type: syntactic

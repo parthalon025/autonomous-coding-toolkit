@@ -3,6 +3,7 @@ id: 25
 title: "Defense-in-depth: validate at all entry points"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

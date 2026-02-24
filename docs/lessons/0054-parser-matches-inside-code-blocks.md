@@ -3,6 +3,7 @@ id: 54
 title: "Markdown parser matches headers inside code blocks and test fixtures"
 severity: should-fix
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: silent-failures
 pattern:
   type: semantic

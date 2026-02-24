@@ -3,6 +3,7 @@ id: 66
 title: "local keyword used outside function scope"
 severity: should-fix
 languages: [shell]
+scope: [language:bash]
 category: silent-failures
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 1
 title: "Bare exception swallowing hides failures"
 severity: blocker
 languages: [python]
+scope: [language:python]
 category: silent-failures
 pattern:
   type: syntactic

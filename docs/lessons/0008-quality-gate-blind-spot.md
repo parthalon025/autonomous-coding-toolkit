@@ -3,6 +3,7 @@ id: 8
 title: "Quality gate blind spot for non-standard test suites"
 severity: should-fix
 languages: [shell, all]
+scope: [project:autonomous-coding-toolkit]
 category: silent-failures
 pattern:
   type: semantic

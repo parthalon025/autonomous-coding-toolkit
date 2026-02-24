@@ -3,6 +3,7 @@ id: 0038
 title: "Subscribe without stored ref = cannot unsubscribe"
 severity: should-fix
 languages: [python, javascript]
+scope: [universal]
 category: resource-lifecycle
 pattern:
   type: syntactic

@@ -3,6 +3,7 @@ id: 0045
 title: "Iterative 'how would you improve' catches 35% more design gaps"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

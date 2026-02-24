@@ -3,6 +3,7 @@ id: 53
 title: "Missing jq -c flag causes string comparison failures in tests"
 severity: should-fix
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: test-anti-patterns
 pattern:
   type: syntactic

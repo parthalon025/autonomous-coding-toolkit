@@ -3,6 +3,7 @@ id: 0036
 title: "WebSocket dirty disconnects raise RuntimeError, not close"
 severity: should-fix
 languages: [python]
+scope: [language:python]
 category: resource-lifecycle
 pattern:
   type: semantic

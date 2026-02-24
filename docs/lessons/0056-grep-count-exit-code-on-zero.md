@@ -3,6 +3,7 @@ id: 56
 title: "grep -c exits 1 on zero matches, breaking || fallback arithmetic"
 severity: should-fix
 languages: [shell]
+scope: [language:bash]
 category: silent-failures
 pattern:
   type: syntactic

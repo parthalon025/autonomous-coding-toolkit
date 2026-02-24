@@ -3,6 +3,7 @@ id: 11
 title: "Batch execution writes tests for unimplemented code"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

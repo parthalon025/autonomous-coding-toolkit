@@ -3,6 +3,7 @@ id: 23
 title: "Static analysis spiral -- chasing lint fixes creates more bugs"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: test-anti-patterns
 pattern:
   type: semantic

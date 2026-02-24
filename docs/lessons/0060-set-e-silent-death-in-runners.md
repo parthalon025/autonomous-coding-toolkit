@@ -3,6 +3,7 @@ id: 60
 title: "set -e kills long-running bash scripts silently when inter-step commands fail"
 severity: blocker
 languages: [shell]
+scope: [project:autonomous-coding-toolkit]
 category: silent-failures
 pattern:
   type: semantic

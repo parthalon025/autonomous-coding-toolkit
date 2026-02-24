@@ -3,6 +3,7 @@ id: 12
 title: "API rejects markdown with unescaped special chars"
 severity: nice-to-have
 languages: [python, javascript, all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 10
 title: "`local` outside function silently misbehaves in bash"
 severity: blocker
 languages: [shell]
+scope: [language:bash]
 category: silent-failures
 pattern:
   type: syntactic

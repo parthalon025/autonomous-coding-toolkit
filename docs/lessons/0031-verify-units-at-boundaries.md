@@ -3,6 +3,7 @@ id: 31
 title: "Verify units at every boundary (0-1 vs 0-100)"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

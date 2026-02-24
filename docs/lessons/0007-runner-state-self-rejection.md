@@ -3,6 +3,7 @@ id: 7
 title: "Runner state file rejected by own git-clean check"
 severity: should-fix
 languages: [shell, all]
+scope: [project:autonomous-coding-toolkit]
 category: integration-boundaries
 pattern:
   type: semantic

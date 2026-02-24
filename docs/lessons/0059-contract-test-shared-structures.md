@@ -3,6 +3,7 @@ id: 59
 title: "Independently-built shared structures diverge without contract tests"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

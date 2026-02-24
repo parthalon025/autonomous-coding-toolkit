@@ -3,6 +3,7 @@ id: 62
 title: "Sibling bugs hide next to the fix"
 severity: should-fix
 languages: [all]
+scope: [project:autonomous-coding-toolkit]
 category: integration-boundaries
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 16
 title: "Event-driven systems must seed current state on startup"
 severity: should-fix
 languages: [python, javascript, all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

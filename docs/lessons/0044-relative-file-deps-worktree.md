@@ -3,6 +3,7 @@ id: 0044
 title: "Relative `file:` deps break in git worktrees"
 severity: should-fix
 languages: [javascript, typescript]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

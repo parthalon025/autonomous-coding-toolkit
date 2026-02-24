@@ -3,6 +3,7 @@ id: 58
 title: "Config keys registered but never consumed are dead knobs"
 severity: should-fix
 languages: [python]
+scope: [project:autonomous-coding-toolkit]
 category: silent-failures
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 35
 title: "Duplicate registration IDs cause silent overwrite"
 severity: should-fix
 languages: [python, javascript, all]
+scope: [universal]
 category: silent-failures
 pattern:
   type: semantic

@@ -3,6 +3,7 @@ id: 57
 title: "New generated artifacts break git-clean quality gates"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

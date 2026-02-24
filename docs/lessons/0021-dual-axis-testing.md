@@ -3,6 +3,7 @@ id: 21
 title: "Dual-axis testing: horizontal sweep + vertical trace"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

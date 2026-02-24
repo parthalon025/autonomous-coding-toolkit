@@ -3,6 +3,7 @@ id: 24
 title: "Shared pipeline features must share implementation"
 severity: should-fix
 languages: [all]
+scope: [universal]
 category: integration-boundaries
 pattern:
   type: semantic

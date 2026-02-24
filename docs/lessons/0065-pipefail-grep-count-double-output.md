@@ -3,6 +3,7 @@ id: 65
 title: "pipefail + grep -c + fallback produces double output"
 severity: should-fix
 languages: [shell]
+scope: [language:bash]
 category: silent-failures
 pattern:
   type: syntactic
