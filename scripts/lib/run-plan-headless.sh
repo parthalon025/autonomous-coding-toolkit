@@ -248,7 +248,7 @@ run_mode_headless() {
 
             if [[ "$mab_route" == "mab" ]]; then
                 local mab_exit=0
-                "$SCRIPT_DIR/../mab-run.sh" \
+                "$SCRIPT_DIR/mab-run.sh" \
                     --plan "$PLAN_FILE" --batch "$batch" \
                     --work-unit "$title" --worktree "$WORKTREE" \
                     --quality-gate "$QUALITY_GATE_CMD" || mab_exit=$?
