@@ -27,7 +27,7 @@ assert_exit() {
 assert_contains() {
     local desc="$1" needle="$2" haystack="$3"
     TESTS=$((TESTS + 1))
-    if echo "$haystack" | grep -qF "$needle"; then
+    if echo "$haystack" | grep -qF -- "$needle"; then
         echo "PASS: $desc"
     else
         echo "FAIL: $desc"
@@ -94,6 +94,68 @@ if echo "$output" | grep -qF "Routing Decisions"; then
 else
     echo "PASS: no routing section when log missing"
 fi
+
+# --- Test: shows total cost when costs present in state file ---
+mkdir -p "$WORK/proj-with-costs"
+cd "$WORK/proj-with-costs" && git init --quiet
+cat > "$WORK/proj-with-costs/.run-plan-state.json" <<'JSON'
+{
+  "plan_file": "docs/plans/test-plan.md",
+  "mode": "headless",
+  "current_batch": 3,
+  "completed_batches": [1, 2],
+  "started_at": "2026-02-21T10:00:00Z",
+  "last_quality_gate": {"passed": true, "test_count": 10},
+  "costs": {"1": "0.05", "2": "0.10"}
+}
+JSON
+output=$(bash "$STATUS_SCRIPT" "$WORK/proj-with-costs" 2>&1) || true
+assert_contains "shows total cost line" "Total cost:" "$output"
+
+# --- Test: --show-costs shows per-batch breakdown ---
+output=$(bash "$STATUS_SCRIPT" --show-costs "$WORK/proj-with-costs" 2>&1) || true
+assert_contains "--show-costs shows Cost Breakdown header" "Cost Breakdown" "$output"
+assert_contains "--show-costs shows batch 1 cost" "Batch 1:" "$output"
+assert_contains "--show-costs shows batch 2 cost" "Batch 2:" "$output"
+
+# --- Test: --show-costs with non-numeric batch key does not crash (#42) ---
+mkdir -p "$WORK/proj-with-final-key"
+cd "$WORK/proj-with-final-key" && git init --quiet
+cat > "$WORK/proj-with-final-key/.run-plan-state.json" <<'JSON'
+{
+  "plan_file": "docs/plans/test-plan.md",
+  "mode": "headless",
+  "current_batch": 2,
+  "completed_batches": [1, "final"],
+  "started_at": "2026-02-21T10:00:00Z",
+  "last_quality_gate": {"passed": true, "test_count": 5},
+  "costs": {"1": "0.03", "final": "0.01"}
+}
+JSON
+output=$(bash "$STATUS_SCRIPT" --show-costs "$WORK/proj-with-final-key" 2>&1) || true
+assert_contains "--show-costs with 'final' key does not crash" "Cost Breakdown" "$output"
+# Should show batch 1 (numeric) but not crash on "final"
+assert_contains "--show-costs numeric key still shown" "Batch 1:" "$output"
+
+# --- Test: --show-costs with no cost data shows informative message ---
+mkdir -p "$WORK/proj-no-costs"
+cd "$WORK/proj-no-costs" && git init --quiet
+cat > "$WORK/proj-no-costs/.run-plan-state.json" <<'JSON'
+{
+  "plan_file": "docs/plans/test-plan.md",
+  "mode": "headless",
+  "current_batch": 1,
+  "completed_batches": [],
+  "started_at": "2026-02-21T10:00:00Z",
+  "last_quality_gate": null
+}
+JSON
+output=$(bash "$STATUS_SCRIPT" --show-costs "$WORK/proj-no-costs" 2>&1) || true
+assert_contains "--show-costs with no costs shows informative message" "No cost data" "$output"
+
+# --- Test: --help exits 0 and mentions --show-costs ---
+output=$(bash "$STATUS_SCRIPT" --help 2>&1) || true
+assert_contains "--help mentions --show-costs" "--show-costs" "$output"
 
 # === Summary ===
 echo ""

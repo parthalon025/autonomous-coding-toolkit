@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # pipeline-status.sh — Single-command view of Code Factory pipeline status
 #
-# Usage: pipeline-status.sh [--help] [project-root]
+# Usage: pipeline-status.sh [--help] [--show-costs] [project-root]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,20 +9,28 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 SHOW_COSTS=false
 PROJECT_ROOT=""
+
+# Parse arguments
 for arg in "$@"; do
     case "$arg" in
-        --show-costs) SHOW_COSTS=true ;;
-        --help|-h) ;;
-        *) PROJECT_ROOT="$arg" ;;
+        --help|-h)
+            echo "pipeline-status.sh — Show Code Factory pipeline status"
+            echo "Usage: pipeline-status.sh [--show-costs] [project-root]"
+            echo ""
+            echo "Options:"
+            echo "  --show-costs    Show per-batch cost breakdown from state file"
+            exit 0
+            ;;
+        --show-costs)
+            SHOW_COSTS=true
+            ;;
+        *)
+            PROJECT_ROOT="$arg"
+            ;;
     esac
 done
-PROJECT_ROOT="${PROJECT_ROOT:-.}"
 
-if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    echo "pipeline-status.sh — Show Code Factory pipeline status"
-    echo "Usage: pipeline-status.sh [project-root]"
-    exit 0
-fi
+PROJECT_ROOT="${PROJECT_ROOT:-.}"
 
 echo "═══════════════════════════════════════════════"
 echo "  Code Factory Pipeline Status"
@@ -50,12 +58,14 @@ if [[ -f "$STATE_FILE" ]]; then
     gate_tests=$(jq -r '.last_quality_gate.test_count // "n/a"' "$STATE_FILE")
     echo "  Last gate: passed=$gate_passed, tests=$gate_tests"
 
-    # Cost tracking
-    total_cost=$(jq -r '.total_cost_usd // 0' "$STATE_FILE")
-    if [[ "$total_cost" != "0" ]]; then
-        echo "  Cost:      \$${total_cost}"
-        # Per-batch breakdown
-        jq -r '.costs // {} | to_entries[] | "    Batch \(.key): $\(.value.estimated_cost_usd // 0) (\(.value.input_tokens // 0) in / \(.value.output_tokens // 0) out)"' "$STATE_FILE" 2>/dev/null || true
+    # Cost summary: total from state file costs map (if present)
+    total_cost=$(jq -r '
+        if .costs then
+            (.costs | to_entries | map(.value | tonumber? // 0) | add // 0)
+        else 0 end
+    ' "$STATE_FILE" 2>/dev/null || echo "0")
+    if [[ "$total_cost" != "0" && "$total_cost" != "null" && -n "$total_cost" ]]; then
+        echo "  Total cost: \$$total_cost"
     fi
     echo ""
 else
@@ -74,6 +84,26 @@ if [[ -f "$PROJECT_ROOT/tasks/prd.json" ]]; then
 else
     echo "--- PRD ---"
     echo "  No PRD found (tasks/prd.json)"
+    echo ""
+fi
+
+# Cost breakdown (--show-costs) (#42/#43)
+# Filter to numeric-only batch keys before sort to avoid tonumber crash on "final" or other non-numeric keys.
+if [[ "$SHOW_COSTS" == "true" && -f "$STATE_FILE" ]]; then
+    echo "--- Cost Breakdown ---"
+    has_costs=$(jq -r 'if .costs then "yes" else "no" end' "$STATE_FILE" 2>/dev/null || echo "no")
+    if [[ "$has_costs" == "yes" ]]; then
+        jq -r '
+            .costs // {} |
+            to_entries |
+            [.[] | select(.key | test("^[0-9]+$"))] |
+            sort_by(.key | tonumber) |
+            .[] |
+            "  Batch \(.key): $\(.value)"
+        ' "$STATE_FILE" 2>/dev/null || echo "  (cost data unreadable)"
+    else
+        echo "  No cost data in state file"
+    fi
     echo ""
 fi
 

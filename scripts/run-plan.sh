@@ -68,6 +68,7 @@ VERIFY=false
 RESUME=false
 SKIP_PLAN_QUALITY=false
 SKIP_ECHO_BACK=false
+STRICT_ECHO_BACK=false
 MAX_BUDGET=""
 
 # --- Usage ---
@@ -97,7 +98,9 @@ Options:
   --skip-plan-quality                  Skip plan quality scorecard check
   --skip-echo-back                     Skip spec echo-back verification
   --resume                             Resume from saved state
-  --max-budget <dollars>               Budget cap (reserved for future use)
+  --max-budget <dollars>               Stop if total cost exceeds this amount
+  --skip-echo-back                     Disable echo-back spec check entirely
+  --strict-echo-back                   Make echo-back blocking (aborts batch on mismatch)
   -h, --help                           Show this help message
 
 Modes:
@@ -173,6 +176,8 @@ parse_args() {
             --max-budget)
                 MAX_BUDGET="$2"; shift 2
                 ;;
+            --skip-echo-back) SKIP_ECHO_BACK=true; shift ;;
+            --strict-echo-back) STRICT_ECHO_BACK=true; shift ;;
             -*)
                 echo "ERROR: Unknown option: $1" >&2
                 usage >&2

@@ -212,6 +212,109 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# === Bug #30: Echo-back gate behavior ===
+
+# run-plan.sh must accept --skip-echo-back without error
+TESTS=$((TESTS + 1))
+if grep -q '\-\-skip-echo-back' "$RP"; then
+    echo "PASS: run-plan.sh accepts --skip-echo-back flag"
+else
+    echo "FAIL: run-plan.sh should define --skip-echo-back flag (bug #30)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# run-plan.sh must accept --strict-echo-back without error
+TESTS=$((TESTS + 1))
+if grep -q '\-\-strict-echo-back' "$RP"; then
+    echo "PASS: run-plan.sh accepts --strict-echo-back flag"
+else
+    echo "FAIL: run-plan.sh should define --strict-echo-back flag (bug #30)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# _echo_back_check function must exist in headless file
+TESTS=$((TESTS + 1))
+if grep -q '_echo_back_check()' "$RPH"; then
+    echo "PASS: _echo_back_check() is defined in run-plan-headless.sh"
+else
+    echo "FAIL: _echo_back_check() should be defined in run-plan-headless.sh (bug #30)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Echo-back gate must be non-blocking by default (no early return when STRICT_ECHO_BACK not set)
+TESTS=$((TESTS + 1))
+if grep -q 'STRICT_ECHO_BACK' "$RPH"; then
+    echo "PASS: STRICT_ECHO_BACK controls blocking behavior in echo-back gate"
+else
+    echo "FAIL: echo-back gate should check STRICT_ECHO_BACK for blocking mode (bug #30)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# echo-back gate is documented as non-blocking by default
+TESTS=$((TESTS + 1))
+if grep -q 'NON-BLOCKING' "$RPH"; then
+    echo "PASS: echo-back gate documents NON-BLOCKING default behavior"
+else
+    echo "FAIL: echo-back gate should document NON-BLOCKING default (bug #30)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# _echo_back_check: SKIP_ECHO_BACK=true must cause early return without error
+TESTS=$((TESTS + 1))
+(
+    source "$RPH" 2>/dev/null || true
+    SKIP_ECHO_BACK=true
+    STRICT_ECHO_BACK=false
+    _echo_back_check "some batch text here" "/nonexistent/log" 2>/dev/null
+) && echo "PASS: _echo_back_check returns 0 when SKIP_ECHO_BACK=true" \
+  || {
+    echo "FAIL: _echo_back_check should return 0 when SKIP_ECHO_BACK=true (bug #30)"
+    FAILURES=$((FAILURES + 1))
+}
+
+# _echo_back_check: missing log file does not crash
+TESTS=$((TESTS + 1))
+(
+    source "$RPH" 2>/dev/null || true
+    SKIP_ECHO_BACK=false
+    STRICT_ECHO_BACK=false
+    _echo_back_check "some batch text here" "/nonexistent/log" 2>/dev/null
+) && echo "PASS: _echo_back_check handles missing log file gracefully" \
+  || {
+    echo "FAIL: _echo_back_check should handle missing log file gracefully (bug #30)"
+    FAILURES=$((FAILURES + 1))
+}
+
+# _echo_back_check: empty batch text does not crash
+TESTS=$((TESTS + 1))
+tmplog=$(mktemp)
+echo "some agent output here" > "$tmplog"
+(
+    source "$RPH" 2>/dev/null || true
+    SKIP_ECHO_BACK=false
+    STRICT_ECHO_BACK=false
+    _echo_back_check "" "$tmplog" 2>/dev/null
+)
+ec=$?
+rm -f "$tmplog"
+if [[ $ec -eq 0 ]]; then
+    echo "PASS: _echo_back_check handles empty batch text gracefully"
+else
+    echo "FAIL: _echo_back_check should handle empty batch text without error (bug #30)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# === Bug #38: Empty claude output diagnostic ===
+
+# Must check for empty log file after claude invocation
+TESTS=$((TESTS + 1))
+if grep -q 'claude produced no output' "$RPH"; then
+    echo "PASS: Empty claude output is diagnosed with a warning message (#38)"
+else
+    echo "FAIL: Should diagnose empty claude output (crash/no output case) (bug #38)"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

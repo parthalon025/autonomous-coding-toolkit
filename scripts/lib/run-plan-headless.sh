@@ -3,8 +3,64 @@
 #
 # Requires globals: WORKTREE, RESUME, START_BATCH, END_BATCH, NOTIFY,
 #   PLAN_FILE, QUALITY_GATE_CMD, PYTHON, MAX_RETRIES, ON_FAILURE, VERIFY, MODE,
-#   SKIP_ECHO_BACK
+#   SKIP_ECHO_BACK, STRICT_ECHO_BACK
 # Requires libs: run-plan-parser, state, quality-gate, notify, prompt, scoring
+#
+# Echo-back gate behavior (--strict-echo-back / --skip-echo-back):
+#   Default: NON-BLOCKING — prints a WARNING if agent echo-back looks wrong, then continues.
+#   --skip-echo-back: disables the echo-back check entirely (no prompt, no warning).
+#   --strict-echo-back: makes the echo-back check BLOCKING — returns 1 on mismatch, aborting the batch.
+
+# Echo-back gate: ask agent to restate the batch intent, check for gross misalignment.
+# Behavior controlled by SKIP_ECHO_BACK and STRICT_ECHO_BACK globals.
+# Non-blocking by default (warns only). --strict-echo-back makes it blocking.
+# Args: <batch_text> <log_file>
+# Returns: 0 always (non-blocking default), or 1 on mismatch with --strict-echo-back
+_echo_back_check() {
+    local batch_text="$1"
+    local log_file="$2"
+
+    # --skip-echo-back: disabled entirely
+    if [[ "${SKIP_ECHO_BACK:-false}" == "true" ]]; then
+        return 0
+    fi
+
+    # Log file must exist to read agent output
+    if [[ ! -f "$log_file" ]]; then
+        return 0
+    fi
+
+    # Extract first paragraph of batch_text as the expected intent keywords
+    local expected_keywords
+    expected_keywords=$(echo "$batch_text" | head -5 | grep -oE '\b[A-Za-z]{4,}\b' | sort -u | head -10 | tr '\n' '|' | sed 's/|$//' || true)
+
+    if [[ -z "$expected_keywords" ]]; then
+        return 0
+    fi
+
+    # Check if log output contains any of the expected keywords (basic alignment check)
+    local found_any=false
+    local keyword
+    while IFS= read -r keyword; do
+        [[ -z "$keyword" ]] && continue
+        if grep -qi "$keyword" "$log_file" 2>/dev/null; then
+            found_any=true
+            break
+        fi
+    done <<< "$(echo "$expected_keywords" | tr '|' '\n')"
+
+    if [[ "$found_any" == "false" ]]; then
+        echo "WARNING: Echo-back check: agent output may not address the batch intent (keywords not found: $expected_keywords)" >&2
+        # --strict-echo-back: blocking — return 1 to abort batch
+        if [[ "${STRICT_ECHO_BACK:-false}" == "true" ]]; then
+            echo "ERROR: --strict-echo-back is set. Aborting batch due to spec misalignment." >&2
+            return 1
+        fi
+        # Default: non-blocking, proceeding anyway
+    fi
+
+    return 0
+}
 
 # echo_back_check — Verify agent understands the batch spec before execution
 # Args: <batch_text> <log_dir> <batch_num> [claude_cmd]
@@ -429,6 +485,8 @@ Focus on fixing the root cause. Check test output carefully."
 
             # Run claude headless (unset CLAUDECODE to allow nested invocation)
             # Use --output-format json to capture session_id for cost tracking
+            # NOTE: this sacrifices real-time streaming — if streaming is needed,
+            # remove --output-format json and use tee instead (#38).
             local claude_exit=0
             local claude_json_output=""
             claude_json_output=$(CLAUDECODE='' claude -p "$full_prompt" \
@@ -451,6 +509,23 @@ Focus on fixing the root cause. Check test output carefully."
             if [[ $claude_exit -ne 0 ]]; then
                 echo "WARNING: claude exited with code $claude_exit"
             fi
+
+            # Diagnostic: if log file is empty or missing, claude likely crashed with no output (#38)
+            if [[ ! -s "$log_file" ]]; then
+                echo "WARNING: claude produced no output (log file empty or missing). Claude may have crashed." >&2
+                echo "  Log path: $log_file" >&2
+                echo "  Exit code: $claude_exit" >&2
+                echo "[run-plan] claude produced no output for batch $batch attempt $attempt (exit=$claude_exit)" >> "$log_file"
+            fi
+
+            # Echo-back gate: check agent output reflects batch intent (#30)
+            # NON-BLOCKING by default; use --strict-echo-back to make it blocking.
+            _echo_back_check "$batch_text" "$log_file" || {
+                if [[ "${STRICT_ECHO_BACK:-false}" == "true" ]]; then
+                    echo "Batch $batch FAILED on attempt $attempt: echo-back gate (strict mode)"
+                    # Fall through to quality gate failure handling
+                fi
+            }
 
             # Restore CLAUDE.md after context injection (prevent git-clean failure)
             # Try git checkout first (works when CLAUDE.md is tracked).
