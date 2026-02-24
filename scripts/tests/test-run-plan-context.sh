@@ -139,6 +139,22 @@ JSON
 ctx=$(generate_batch_context "$WORK/test-plan.md" 3 "$WORK")
 assert_contains "context: includes failure pattern warning" "missing import" "$ctx"
 
+# === MAB lessons injection ===
+
+# Create MAB lessons file
+cat > "$WORK/logs/mab-lessons.json" << 'JSON'
+[{"pattern": "check imports before tests", "context": "integration", "winner": "superpowers", "occurrences": 3, "promoted": false}]
+JSON
+
+ctx_mab=$(generate_batch_context "$WORK/test-plan.md" 3 "$WORK")
+assert_contains "context: MAB lessons injected when file present" "check imports before tests" "$ctx_mab"
+assert_contains "context: MAB lessons section header" "MAB Lessons" "$ctx_mab"
+
+# Remove MAB lessons and verify no section
+rm -f "$WORK/logs/mab-lessons.json"
+ctx_no_mab=$(generate_batch_context "$WORK/test-plan.md" 3 "$WORK")
+assert_not_contains "context: no MAB section when file absent" "MAB Lessons" "$ctx_no_mab"
+
 # === No tail fallback: structured read returns empty, no wrong-batch data injected (#54) ===
 
 # Progress.txt with only batch 1 content (no batch 2)

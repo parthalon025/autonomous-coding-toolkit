@@ -50,6 +50,7 @@ source "$SCRIPT_DIR/lib/progress-writer.sh"
 source "$SCRIPT_DIR/lib/run-plan-scoring.sh"
 source "$SCRIPT_DIR/lib/cost-tracking.sh"
 source "$SCRIPT_DIR/lib/run-plan-team.sh"
+source "$SCRIPT_DIR/lib/thompson-sampling.sh"
 
 # --- Defaults ---
 PLAN_FILE=""
@@ -69,6 +70,7 @@ RESUME=false
 SKIP_PLAN_QUALITY=false
 SKIP_ECHO_BACK=false
 STRICT_ECHO_BACK=false
+MAB=false
 MAX_BUDGET=""
 
 # --- Usage ---
@@ -101,6 +103,7 @@ Options:
   --max-budget <dollars>               Stop if total cost exceeds this amount
   --skip-echo-back                     Disable echo-back spec check entirely
   --strict-echo-back                   Make echo-back blocking (aborts batch on mismatch)
+  --mab                                Enable MAB routing (competing agents via Thompson Sampling)
   -h, --help                           Show this help message
 
 Modes:
@@ -178,6 +181,7 @@ parse_args() {
                 ;;
             --skip-echo-back) SKIP_ECHO_BACK=true; shift ;;
             --strict-echo-back) STRICT_ECHO_BACK=true; shift ;;
+            --mab) MAB=true; shift ;;
             -*)
                 echo "ERROR: Unknown option: $1" >&2
                 usage >&2
