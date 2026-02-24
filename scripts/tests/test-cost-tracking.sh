@@ -48,10 +48,40 @@ assert_eq "extract: cache_read_tokens value" "3200" "$cache_read"
 cost_usd=$(echo "$cost_json" | jq -r '.estimated_cost_usd')
 assert_eq "extract: cost from JSONL summary" "0.0423" "$cost_usd"
 
+# Fix #39: tracking_status field — found when real summary data exists
+tracking_status=$(echo "$cost_json" | jq -r '.tracking_status')
+assert_eq "extract: tracking_status is found for real session" "found" "$tracking_status"
+
 # --- Test: extract_session_cost handles missing session ---
-cost_json=$(extract_session_cost "nonexistent" "$WORK/.claude")
+cost_json=$(extract_session_cost "nonexistent" "$WORK/.claude" 2>/dev/null)
 input_tokens=$(echo "$cost_json" | jq -r '.input_tokens')
 assert_eq "extract: missing session returns 0 input_tokens" "0" "$input_tokens"
+
+# Fix #39: tracking_status:"missing_file" distinguishes broken tracking from true $0 cost
+tracking_status=$(echo "$cost_json" | jq -r '.tracking_status')
+assert_eq "extract: missing session tracking_status is missing_file" "missing_file" "$tracking_status"
+
+# Fix #36: session_id with special chars must not corrupt JSON
+SPECIAL_SID='injected"value\with\backslash'
+MOCK_SPECIAL_DIR="$WORK/.claude/projects/test-project"
+# No JSONL for this session — tests injection-safe fallback path
+cost_json=$(extract_session_cost "$SPECIAL_SID" "$WORK/.claude" 2>/dev/null)
+assert_eq "extract: special chars in session_id produce valid JSON" "0" "$(echo "$cost_json" | jq -r '.input_tokens')"
+assert_eq "extract: tracking_status for special-char session" "missing_file" "$(echo "$cost_json" | jq -r '.tracking_status')"
+
+# Fix #39: tracking_status:"no_summary" for JSONL with no summary line
+NO_SUMMARY_SID="no-summary-session"
+cat > "$MOCK_SESSION_DIR/${NO_SUMMARY_SID}.jsonl" << 'JSONL'
+{"type":"user","message":"hello"}
+{"type":"assistant","message":"hi"}
+JSONL
+cost_json=$(extract_session_cost "$NO_SUMMARY_SID" "$WORK/.claude" 2>/dev/null)
+tracking_status=$(echo "$cost_json" | jq -r '.tracking_status')
+assert_eq "extract: no summary line tracking_status is no_summary" "no_summary" "$tracking_status"
+assert_eq "extract: no summary line returns 0 cost" "0" "$(echo "$cost_json" | jq -r '.estimated_cost_usd')"
+
+# Fix #35: grep on file with no summary line must not kill set -e callers
+# (tested implicitly above — test suite uses set -euo pipefail and did not die)
 
 # --- Test: record_batch_cost writes to state ---
 init_state "$WORK" "plan.md" "headless"
@@ -68,6 +98,16 @@ assert_eq "record: batch 1 session_id in state" "$MOCK_SESSION_ID" "$session_id"
 
 total_cost=$(jq -r '.total_cost_usd' "$WORK/.run-plan-state.json")
 assert_eq "record: total_cost_usd updated" "0.0423" "$total_cost"
+
+# Fix #41: total_cost_usd must be 0 (not null) when costs object is empty
+WORK2=$(mktemp -d)
+trap 'rm -rf "$WORK2"' EXIT
+init_state "$WORK2" "plan.md" "headless"
+# Manually inject an empty costs object then verify // 0 guard
+jq '.costs = {}' "$WORK2/.run-plan-state.json" > "$WORK2/.run-plan-state.json.tmp" && mv "$WORK2/.run-plan-state.json.tmp" "$WORK2/.run-plan-state.json"
+record_batch_cost "$WORK2" 1 "nonexistent-for-null-test" "$WORK2/.claude" 2>/dev/null
+null_guard=$(jq -r '.total_cost_usd' "$WORK2/.run-plan-state.json")
+assert_eq "record: total_cost_usd is 0 not null for empty costs" "0" "$null_guard"
 
 # --- Test: record_batch_cost accumulates across batches ---
 MOCK_SESSION_ID_2="test-session-def-456"
@@ -86,6 +126,30 @@ assert_exit "check_budget: under budget returns 0" 0 check_budget "$WORK" "1.00"
 
 # --- Test: check_budget returns 1 when over budget ---
 assert_exit "check_budget: over budget returns 1" 1 check_budget "$WORK" "0.05"
+
+# Fix #40: check_budget awk fallback — verify awk float comparison expressions
+# Build a PATH with awk but without bc (symlink all /usr/bin and /bin except bc)
+NO_BC_PATH_DIR=$(mktemp -d)
+trap 'rm -rf "$NO_BC_PATH_DIR"' EXIT
+for _f in /usr/bin/* /bin/*; do
+    _bn=$(basename "$_f")
+    [[ "$_bn" == "bc" ]] && continue
+    [[ -e "$NO_BC_PATH_DIR/$_bn" ]] && continue
+    ln -sf "$_f" "$NO_BC_PATH_DIR/$_bn" 2>/dev/null || true
+done
+# Also make other dirs in PATH available (nvm node, linuxbrew, .local/bin)
+WORK3=$(mktemp -d)
+trap 'rm -rf "$WORK3"' EXIT
+PATH="$NO_BC_PATH_DIR" bash -c "
+    source '$SCRIPT_DIR/../lib/run-plan-state.sh'
+    source '$SCRIPT_DIR/../lib/cost-tracking.sh'
+    init_state '$WORK3' 'plan.md' 'headless'
+    record_batch_cost '$WORK3' 1 '$MOCK_SESSION_ID' '$WORK/.claude' 2>/dev/null
+" 2>/dev/null
+assert_exit "check_budget: awk fallback under budget returns 0" 0 \
+    bash -c "PATH='$NO_BC_PATH_DIR' source '$SCRIPT_DIR/../lib/cost-tracking.sh' 2>/dev/null; check_budget '$WORK3' '1.00'" 2>/dev/null
+assert_exit "check_budget: awk fallback over budget returns 1" 1 \
+    bash -c "PATH='$NO_BC_PATH_DIR' source '$SCRIPT_DIR/../lib/cost-tracking.sh' 2>/dev/null; check_budget '$WORK3' '0.01'" 2>/dev/null
 
 # --- Test: get_total_cost returns accumulated cost ---
 total=$(get_total_cost "$WORK")
