@@ -8,6 +8,7 @@ id: <next sequential number>
 title: "<Short descriptive title — what the anti-pattern IS>"
 severity: <blocker|should-fix|nice-to-have>
 languages: [<python|javascript|typescript|shell|all>]
+scope: [<universal|language:X|framework:X|domain:X|project:X>]  # optional, defaults to universal
 category: <async-traps|resource-lifecycle|silent-failures|integration-boundaries|test-anti-patterns|performance>
 pattern:
   type: <syntactic|semantic>
@@ -51,6 +52,19 @@ example:
 | `integration-boundaries` | Cross-module bugs, path issues, API contract mismatches |
 | `test-anti-patterns` | Brittle assertions, mocking the wrong thing, false confidence |
 | `performance` | Missing filters, unnecessary work, resource waste |
+
+### Scope (Project-Level Filtering)
+Scope controls which projects a lesson applies to. Language filtering (`languages:`) picks files; scope filtering picks projects. Both are orthogonal.
+
+| Tag Format | Example | Matches |
+|------------|---------|---------|
+| `universal` | `[universal]` | All projects (default) |
+| `language:<lang>` | `[language:python]` | Projects with that language |
+| `framework:<name>` | `[framework:pytest]` | Projects using that framework |
+| `domain:<name>` | `[domain:ha-aria]` | Domain-specific projects |
+| `project:<name>` | `[project:autonomous-coding-toolkit]` | Exact project match |
+
+Default when omitted: `[universal]` — backward compatible.
 
 ### Writing Good Regex Patterns
 - Test with `grep -P "<pattern>" <your_file>` before submitting
