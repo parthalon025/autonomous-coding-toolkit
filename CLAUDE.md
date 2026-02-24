@@ -22,6 +22,7 @@ Skills are loaded by Claude Code and define HOW to execute each stage. The `auto
 | 4a. Execute (same session) | `subagent-driven-development` | Fresh subagent per task + two-stage review |
 | 4b. Execute (separate session) | `executing-plans` | Batch execution with human review checkpoints |
 | 4c. Execute (headless) | `scripts/run-plan.sh` | `claude -p` per batch, fully autonomous |
+| 4c+. Execute (MAB) | `scripts/run-plan.sh --mab` | Competing agents via Thompson Sampling |
 | 4d. Execute (loop) | `commands/ralph-loop` | Stop-hook iteration until completion promise |
 | 5. Verify | `verification-before-completion` | Evidence-based gate: run commands, read output |
 | 6. Finish | `finishing-a-development-branch` | Merge / PR / Keep / Discard + worktree cleanup |
@@ -164,6 +165,7 @@ Advanced options:
 - **AGENTS.md** — auto-generated per worktree with plan metadata, tool permissions, and batch table for agent awareness.
 - **Per-batch context injection** — assembles targeted context (failure patterns, prior batch summaries, referenced files) within a 6000-char budget and injects into CLAUDE.md before each batch.
 - **ast-grep patterns** — 5 patterns in `scripts/patterns/` (bare-except, empty-catch, async-no-await, retry-loop-no-backoff, hardcoded-localhost).
+- **`--mab`** — Multi-Armed Bandit mode: runs two competing strategies (superpowers vs ralph) in parallel worktrees, LLM judge picks winner with quality gate override, Thompson Sampling routes future batches. Human calibration for first 10 runs.
 
 ## Community Lessons
 
@@ -184,6 +186,8 @@ Three mechanisms prevent data loss across context resets:
 - **`logs/failure-patterns.json`** — cross-run failure learning (failure types, frequencies, winning fixes per batch title).
 - **`logs/routing-decisions.log`** — execution traceability (mode selection, model routing, parallelism scores).
 - **`logs/sampling-outcomes.json`** — prompt variant learning (which sampling strategy won per batch type).
+- **`logs/strategy-perf.json`** — MAB win/loss counters per strategy per batch type (Thompson Sampling data).
+- **`logs/mab-lessons.json`** — patterns observed by the MAB judge agent (auto-promoted at 3+ occurrences).
 
 ## Design Principles
 
