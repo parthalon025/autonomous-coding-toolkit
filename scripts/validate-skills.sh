@@ -73,6 +73,11 @@ for skill_dir in "$SKILLS_DIR"/*/; do
         referenced=$(echo "$cleaned" | grep -oE '[a-zA-Z0-9_-]+\.md' | sort -u || true)
         for ref in $referenced; do
             [[ "$ref" == "SKILL.md" ]] && continue
+            # Skip all-caps filenames (FRAMEWORK.md, SUMMARY.md, README.md, etc.)
+            # — these are conventional doc files that live outside the skill directory
+            if [[ "$ref" =~ ^[A-Z][A-Z0-9_-]*\.md$ ]]; then
+                continue
+            fi
             if [[ ! -f "$skill_dir/$ref" ]]; then
                 report_violation "$dir_name/SKILL.md" 0 "Referenced file not found: $ref"
             fi

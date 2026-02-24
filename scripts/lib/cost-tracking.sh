@@ -97,11 +97,24 @@ check_budget() {
     fi
 
     local total
-    total=$(jq -r '.total_cost_usd // 0' "$sf")
+    total=$(jq -r '.total_cost_usd // 0' "$sf" 2>/dev/null) || total=""
+
+    # Fix #63: validate jq output is numeric — corrupted state must not bypass budget
+    if [[ -z "$total" ]] || ! [[ "$total" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+        echo "WARNING: cost-tracking: corrupted total_cost_usd='$total' in state file — treating as budget exceeded" >&2
+        return 1
+    fi
+
+    # Fix #69: validate max_budget is numeric — prevent awk injection via CLI args
+    if ! [[ "$max_budget" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+        echo "ERROR: cost-tracking: invalid max_budget='$max_budget'" >&2
+        return 1
+    fi
 
     # Fix #40: check for bc; fall back to awk for float comparison if missing
     if ! command -v bc >/dev/null 2>&1; then
         echo "WARNING: cost-tracking: bc not found, using awk for budget comparison" >&2
+        # Safe: both values validated as numeric above
         if awk "BEGIN {exit !(${total} > ${max_budget})}" 2>/dev/null; then
             echo "BUDGET EXCEEDED: \$${total} spent of \$${max_budget} limit" >&2
             return 1
@@ -120,5 +133,21 @@ check_budget() {
 get_total_cost() {
     local worktree="$1"
     local sf="$worktree/.run-plan-state.json"
-    jq -r '.total_cost_usd // 0' "$sf" 2>/dev/null || echo "0"
+
+    if [[ ! -f "$sf" ]]; then
+        echo "0"
+        return 0
+    fi
+
+    local val
+    val=$(jq -r '.total_cost_usd // 0' "$sf" 2>/dev/null) || val=""
+
+    # Fix #63: validate output is numeric — don't silently return "0" on corrupted state
+    if [[ -n "$val" ]] && [[ "$val" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+        echo "$val"
+    else
+        echo "WARNING: cost-tracking: corrupted total_cost_usd='$val' in $sf" >&2
+        echo "error"
+        return 1
+    fi
 }

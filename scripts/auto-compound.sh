@@ -225,7 +225,11 @@ echo "📤 Step 6: Pushing and creating PR..."
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "  [dry-run] Would push $BRANCH_NAME and create PR"
 else
-  git push -u origin "$BRANCH_NAME" 2>/dev/null || true
+  if ! git push -u origin "$BRANCH_NAME" 2>&1; then
+    echo "ERROR: git push failed for branch $BRANCH_NAME" >&2
+    echo "  Check: authentication, remote availability, branch protection rules" >&2
+    exit 1
+  fi
 
   # Create PR
   PR_BODY="## Summary

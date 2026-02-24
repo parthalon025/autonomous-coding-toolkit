@@ -205,13 +205,6 @@ run_mode_headless() {
     # Preserve user's --sample value before batch loop so per-batch reset doesn't clobber it (#16/#28)
     local SAMPLE_DEFAULT=${SAMPLE_COUNT:-0}
 
-    # Build and cache stable prompt prefix (reused across batches for API cache hits)
-    local prev_test_count_initial
-    prev_test_count_initial=$(get_previous_test_count "$WORKTREE")
-    local stable_prefix
-    stable_prefix=$(build_stable_prefix "$PLAN_FILE" "$WORKTREE" "$PYTHON" "$QUALITY_GATE_CMD" "$prev_test_count_initial")
-    echo "$stable_prefix" > "$WORKTREE/.run-plan-prefix.txt"
-
     for ((batch = START_BATCH; batch <= END_BATCH; batch++)); do
         # Reset sampling count each batch — prevents leak from prior batch's retry/critical trigger (#16/#28)
         SAMPLE_COUNT=$SAMPLE_DEFAULT
@@ -325,7 +318,7 @@ run_mode_headless() {
             "$stable_prefix")
 
         # Spec echo-back gate: verify agent understands the batch before executing
-        if [[ "${SKIP_ECHO_BACK:-false}" != true ]]; then
+        if [[ "${SKIP_ECHO_BACK:-false}" != "true" ]]; then
             if ! echo_back_check "$batch_text" "$WORKTREE/logs" "$batch"; then
                 echo "WARNING: Echo-back check failed for batch $batch (proceeding anyway)" >&2
             fi
@@ -411,7 +404,9 @@ run_mode_headless() {
                     # Reset tracked changes first, then re-apply the baseline diff.
                     (cd "$WORKTREE" && git checkout . 2>/dev/null || true)
                     if [[ -s "$_baseline_patch" ]]; then
-                        (cd "$WORKTREE" && git apply "$_baseline_patch" 2>/dev/null || true)
+                        if ! (cd "$WORKTREE" && git apply "$_baseline_patch" 2>/dev/null); then
+                            echo "  WARNING: Failed to restore baseline patch for candidate $c — starting from clean state" >&2
+                        fi
                     fi
 
                     CLAUDECODE='' claude -p "${prompt}${variant_suffix}" \
@@ -459,7 +454,11 @@ run_mode_headless() {
                     # Restore winner's patch — explicit named file, no LIFO ordering risk
                     local _apply_patch="/tmp/run-plan-winner-${batch}-${winner}-$$.diff"
                     if [[ -s "$_apply_patch" ]]; then
-                        (cd "$WORKTREE" && git apply "$_apply_patch" 2>/dev/null || true)
+                        if ! (cd "$WORKTREE" && git apply "$_apply_patch"); then
+                            echo "  ERROR: Failed to apply winning candidate $winner patch — sampling result lost" >&2
+                            # Don't break — fall through to normal retry path
+                            batch_passed=false
+                        fi
                     fi
 
                     # Log sampling outcome
@@ -482,7 +481,9 @@ run_mode_headless() {
                     echo "  No candidate passed quality gate"
                     # Restore baseline state for the normal retry path
                     if [[ -s "$_baseline_patch" ]]; then
-                        (cd "$WORKTREE" && git apply "$_baseline_patch" 2>/dev/null || true)
+                        if ! (cd "$WORKTREE" && git apply "$_baseline_patch" 2>/dev/null); then
+                            echo "  WARNING: Failed to restore baseline after sampling — continuing from clean state" >&2
+                        fi
                     fi
                 fi
 

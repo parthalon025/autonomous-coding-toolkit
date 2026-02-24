@@ -59,9 +59,14 @@ if [[ -f "$STATE_FILE" ]]; then
     echo "  Last gate: passed=$gate_passed, tests=$gate_tests"
 
     # Cost summary: total from state file costs map (if present)
+    # Fix #70: .costs values may be objects (from record_batch_cost) or plain numbers/strings (legacy).
+    # Try .estimated_cost_usd first, then tonumber for backward compat.
     total_cost=$(jq -r '
         if .costs then
-            (.costs | to_entries | map(.value | tonumber? // 0) | add // 0)
+            (.costs | to_entries | map(
+                if .value | type == "object" then (.value.estimated_cost_usd // 0)
+                else (.value | tonumber? // 0) end
+            ) | add // 0)
         else 0 end
     ' "$STATE_FILE" 2>/dev/null || echo "0")
     if [[ "$total_cost" != "0" && "$total_cost" != "null" && -n "$total_cost" ]]; then
@@ -129,7 +134,7 @@ if [[ "$SHOW_COSTS" == "true" && -f "$STATE_FILE" ]]; then
             [.[] | select(.key | test("^[0-9]+$"))] |
             sort_by(.key | tonumber) |
             .[] |
-            "  Batch \(.key): $\(.value)"
+            "  Batch \(.key): $\(if .value | type == "object" then .value.estimated_cost_usd // 0 else .value end)"
         ' "$STATE_FILE" 2>/dev/null || echo "  (cost data unreadable)"
     else
         echo "  No cost data in state file"

@@ -45,11 +45,13 @@ format_failure_message() {
 notify_success() {
     local msg
     msg=$(format_success_message "$@")
-    _send_telegram "$msg"
+    # Notification failure is non-critical — don't abort the pipeline
+    _send_telegram "$msg" || echo "WARNING: notify_success: Telegram send failed (non-fatal)" >&2
 }
 
 notify_failure() {
     local msg
     msg=$(format_failure_message "$@")
-    _send_telegram "$msg"
+    # Notification failure is non-critical — don't abort the pipeline
+    _send_telegram "$msg" || echo "WARNING: notify_failure: Telegram send failed (non-fatal)" >&2
 }

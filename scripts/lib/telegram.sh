@@ -37,12 +37,18 @@ _send_telegram() {
 
     local url="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
 
-    curl -s -X POST "$url" \
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url" \
         -d chat_id="$TELEGRAM_CHAT_ID" \
         -d text="$message" \
         -d parse_mode="Markdown" \
-        --max-time 10 > /dev/null 2>&1 || {
-        echo "WARNING: Failed to send Telegram notification" >&2
-        return 0
+        --max-time 10 2>/dev/null) || {
+        echo "WARNING: Failed to send Telegram notification (curl error)" >&2
+        return 1
     }
+
+    if [[ "$http_code" != "200" ]]; then
+        echo "WARNING: Telegram API returned HTTP $http_code" >&2
+        return 1
+    fi
 }
