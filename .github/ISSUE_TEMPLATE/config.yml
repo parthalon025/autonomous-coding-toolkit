@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Discussions
+    url: https://github.com/parthalon025/autonomous-coding-toolkit/discussions
+    about: Ask questions, share how you use the toolkit, or discuss ideas
