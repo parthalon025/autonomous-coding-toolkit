@@ -69,6 +69,9 @@ assert_output_contains "help mentions --resume" "--resume" "$RUN_PLAN" --help
 # --- Test: help output mentions --on-failure ---
 assert_output_contains "help mentions --on-failure" "--on-failure" "$RUN_PLAN" --help
 
+# --- Test: help output mentions --mab ---
+assert_output_contains "help mentions --mab" "--mab" "$RUN_PLAN" --help
+
 # --- Test: --resume without state file exits 1 ---
 TMPDIR_RESUME=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_RESUME"' EXIT

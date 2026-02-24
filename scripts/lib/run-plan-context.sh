@@ -61,6 +61,25 @@ generate_batch_context() {
         fi
     fi
 
+    # 2.5. MAB lessons (from competing agent runs)
+    local mab_lessons_file="$worktree/logs/mab-lessons.json"
+    if [[ -f "$mab_lessons_file" ]]; then
+        local mab_count
+        mab_count=$(jq 'length' "$mab_lessons_file" 2>/dev/null || echo "0")
+        if [[ "$mab_count" -gt 0 ]]; then
+            local mab_section="### MAB Lessons"$'\n'
+            mab_section+=$(jq -r '
+                sort_by(-.occurrences // 0) | .[0:5] | .[] |
+                "- **\(.pattern)** (\(.context // "general")): \(.recommendation // .winner // "")"
+            ' "$mab_lessons_file" 2>/dev/null || true)
+            mab_section+=$'\n\n'
+            if [[ $((chars_used + ${#mab_section})) -lt $TOKEN_BUDGET_CHARS ]]; then
+                context+="$mab_section"
+                chars_used=$((chars_used + ${#mab_section}))
+            fi
+        fi
+    fi
+
     chars_used=${#context}
 
     # 3. Context refs file contents (if budget allows)

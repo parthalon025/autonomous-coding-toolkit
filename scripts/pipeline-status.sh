@@ -87,6 +87,36 @@ else
     echo ""
 fi
 
+# MAB status
+PERF_FILE="$PROJECT_ROOT/logs/strategy-perf.json"
+LESSONS_FILE="$PROJECT_ROOT/logs/mab-lessons.json"
+if [[ -f "$PERF_FILE" ]]; then
+    echo "--- MAB (Multi-Armed Bandit) ---"
+    cal_count=$(jq -r '.calibration_count // 0' "$PERF_FILE" 2>/dev/null)
+    cal_complete=$(jq -r '.calibration_complete // false' "$PERF_FILE" 2>/dev/null)
+    echo "  Calibration: $cal_count/10 (complete: $cal_complete)"
+
+    # Per-type win rates
+    for bt in "new-file" "refactoring" "integration" "test-only"; do
+        sp_w=$(jq -r --arg bt "$bt" '.[$bt].superpowers.wins // 0' "$PERF_FILE" 2>/dev/null)
+        sp_l=$(jq -r --arg bt "$bt" '.[$bt].superpowers.losses // 0' "$PERF_FILE" 2>/dev/null)
+        r_w=$(jq -r --arg bt "$bt" '.[$bt].ralph.wins // 0' "$PERF_FILE" 2>/dev/null)
+        r_l=$(jq -r --arg bt "$bt" '.[$bt].ralph.losses // 0' "$PERF_FILE" 2>/dev/null)
+        sp_total=$((sp_w + sp_l))
+        r_total=$((r_w + r_l))
+        if [[ $sp_total -gt 0 || $r_total -gt 0 ]]; then
+            echo "  $bt: superpowers=${sp_w}W/${sp_l}L  ralph=${r_w}W/${r_l}L"
+        fi
+    done
+
+    # Lesson count
+    if [[ -f "$LESSONS_FILE" ]]; then
+        lesson_count=$(jq 'length' "$LESSONS_FILE" 2>/dev/null || echo "0")
+        echo "  Lessons: $lesson_count patterns recorded"
+    fi
+    echo ""
+fi
+
 # Cost breakdown (--show-costs) (#42/#43)
 # Filter to numeric-only batch keys before sort to avoid tonumber crash on "final" or other non-numeric keys.
 if [[ "$SHOW_COSTS" == "true" && -f "$STATE_FILE" ]]; then

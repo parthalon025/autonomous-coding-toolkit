@@ -157,6 +157,37 @@ assert_contains "--show-costs with no costs shows informative message" "No cost 
 output=$(bash "$STATUS_SCRIPT" --help 2>&1) || true
 assert_contains "--help mentions --show-costs" "--show-costs" "$output"
 
+# --- Test: MAB section shown when strategy-perf.json exists ---
+mkdir -p "$WORK/proj-with-state/logs"
+cat > "$WORK/proj-with-state/logs/strategy-perf.json" <<'JSON'
+{
+  "new-file": {"superpowers": {"wins": 5, "losses": 2}, "ralph": {"wins": 3, "losses": 4}},
+  "refactoring": {"superpowers": {"wins": 0, "losses": 0}, "ralph": {"wins": 0, "losses": 0}},
+  "integration": {"superpowers": {"wins": 0, "losses": 0}, "ralph": {"wins": 0, "losses": 0}},
+  "test-only": {"superpowers": {"wins": 0, "losses": 0}, "ralph": {"wins": 0, "losses": 0}},
+  "calibration_count": 3,
+  "calibration_complete": false
+}
+JSON
+echo '[{"pattern": "test pattern", "context": "new-file"}]' > "$WORK/proj-with-state/logs/mab-lessons.json"
+
+output=$(bash "$STATUS_SCRIPT" "$WORK/proj-with-state" 2>&1) || true
+assert_contains "MAB section header shown" "MAB" "$output"
+assert_contains "MAB calibration shown" "3/10" "$output"
+assert_contains "MAB win rates shown" "superpowers=5W/2L" "$output"
+assert_contains "MAB lesson count shown" "1 patterns recorded" "$output"
+
+# --- Test: no MAB section when no perf file ---
+rm -f "$WORK/proj-with-state/logs/strategy-perf.json" "$WORK/proj-with-state/logs/mab-lessons.json"
+output=$(bash "$STATUS_SCRIPT" "$WORK/proj-with-state" 2>&1) || true
+TESTS=$((TESTS + 1))
+if echo "$output" | grep -qF "Multi-Armed Bandit"; then
+    echo "FAIL: MAB section should not appear without perf file"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: no MAB section when perf file absent"
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

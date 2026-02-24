@@ -238,6 +238,36 @@ run_mode_headless() {
             continue
         fi
 
+        # MAB routing (when --mab flag set)
+        if [[ "${MAB:-false}" == "true" ]]; then
+            local batch_type_for_route
+            batch_type_for_route=$(classify_batch_type "$PLAN_FILE" "$batch")
+            local perf_file="$WORKTREE/logs/strategy-perf.json"
+            [[ ! -f "$perf_file" ]] && init_strategy_perf "$perf_file"
+
+            local mab_route
+            mab_route=$(thompson_route "$batch_type_for_route" "$perf_file")
+            echo "  [MAB] type=$batch_type_for_route → route=$mab_route"
+
+            if [[ "$mab_route" == "mab" ]]; then
+                local mab_exit=0
+                "$SCRIPT_DIR/../mab-run.sh" \
+                    --plan "$PLAN_FILE" --batch "$batch" \
+                    --work-unit "$title" --worktree "$WORKTREE" \
+                    --quality-gate "$QUALITY_GATE_CMD" || mab_exit=$?
+
+                if [[ $mab_exit -eq 0 ]]; then
+                    local new_tc; new_tc=$(get_previous_test_count "$WORKTREE")
+                    complete_batch "$WORKTREE" "$batch" "$new_tc"
+                    batch_passed=true
+                else
+                    echo "MAB batch $batch failed (exit $mab_exit)"
+                fi
+                # Skip normal headless execution — jump to batch_passed check
+                continue
+            fi
+        fi
+
         # Write batch header to progress.txt at the start of each batch (#53)
         # Non-fatal: progress tracking failure must not kill the run
         if type write_batch_progress &>/dev/null; then
