@@ -2,9 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Save test script dir — sourcing mab-run.sh overwrites SCRIPT_DIR
+TEST_DIR="$SCRIPT_DIR"
 source "$SCRIPT_DIR/test-helpers.sh"
 
-MAB_RUN="$SCRIPT_DIR/../mab-run.sh"
+MAB_RUN="$TEST_DIR/../mab-run.sh"
 
 # --- Test: --help exits 0 and mentions key concepts ---
 help_output=$("$MAB_RUN" --help 2>&1) || true
@@ -107,6 +109,74 @@ else
     assert_contains "substitutes PRD_PATH" "tasks/prd.json" "$result"
     assert_contains "substitutes QUALITY_GATE_CMD" "scripts/quality-gate.sh --project-root ." "$result"
     assert_not_contains "no remaining placeholders" "{WORK_UNIT_DESCRIPTION}" "$result"
+fi
+
+# --- Test: update_mab_data lesson deduplication ---
+# Call update_mab_data twice with the same lesson — should have 1 entry with occurrences=2
+TESTS=$((TESTS + 1))
+if ! type update_mab_data &>/dev/null; then
+    echo "FAIL: update_mab_data not found after sourcing mab-run.sh"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: update_mab_data available after --source-only"
+
+    dedup_dir=$(mktemp -d)
+    MAB_WORKTREE="$dedup_dir"
+    mkdir -p "$dedup_dir/logs"
+    # init_strategy_perf is already available (sourced via mab-run.sh --source-only)
+    init_strategy_perf "$dedup_dir/logs/strategy-perf.json"
+
+    # First call — creates new lesson entry
+    update_mab_data "agent-a" "always check imports" "new-file"
+
+    TESTS=$((TESTS + 1))
+    count1=$(jq 'length' "$dedup_dir/logs/mab-lessons.json" 2>/dev/null || echo "0")
+    if [[ "$count1" == "1" ]]; then
+        echo "PASS: update_mab_data: first call creates 1 lesson entry"
+    else
+        echo "FAIL: update_mab_data: expected 1 entry after first call, got $count1"
+        FAILURES=$((FAILURES + 1))
+    fi
+
+    # Second call with same lesson — should deduplicate (increment occurrences, not add)
+    update_mab_data "agent-b" "always check imports" "new-file"
+
+    TESTS=$((TESTS + 1))
+    count2=$(jq 'length' "$dedup_dir/logs/mab-lessons.json" 2>/dev/null || echo "0")
+    if [[ "$count2" == "1" ]]; then
+        echo "PASS: update_mab_data: second call deduplicates (still 1 entry)"
+    else
+        echo "FAIL: update_mab_data: expected 1 entry after dedup, got $count2"
+        FAILURES=$((FAILURES + 1))
+    fi
+
+    occ=$(jq '.[0].occurrences' "$dedup_dir/logs/mab-lessons.json" 2>/dev/null || echo "0")
+    assert_eq "update_mab_data: occurrences incremented to 2" "2" "$occ"
+
+    rm -rf "$dedup_dir"
+fi
+
+# --- Test: --mab flag wiring (run-plan.sh → run-plan-headless.sh → mab-run.sh) ---
+# run-plan.sh parses --mab and sets MAB=true
+RP_MAIN="$TEST_DIR/../run-plan.sh"
+RP_HEADLESS="$TEST_DIR/../lib/run-plan-headless.sh"
+
+TESTS=$((TESTS + 1))
+if grep -q '\-\-mab) MAB=true' "$RP_MAIN" 2>/dev/null; then
+    echo "PASS: run-plan.sh parses --mab flag and sets MAB=true"
+else
+    echo "FAIL: run-plan.sh should parse --mab and set MAB=true"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# run-plan-headless.sh checks MAB flag and invokes mab-run.sh
+TESTS=$((TESTS + 1))
+if grep -q 'MAB.*true' "$RP_HEADLESS" 2>/dev/null && \
+   grep -q 'mab-run.sh' "$RP_HEADLESS" 2>/dev/null; then
+    echo "PASS: run-plan-headless.sh checks MAB flag and invokes mab-run.sh"
+else
+    echo "FAIL: run-plan-headless.sh should check MAB flag and invoke mab-run.sh"
+    FAILURES=$((FAILURES + 1))
 fi
 
 report_results

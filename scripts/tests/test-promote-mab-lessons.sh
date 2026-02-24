@@ -78,4 +78,33 @@ assert_eq "--dry-run creates no files" "0" "$dry_files"
 dry_promoted=$(jq '[.[] | select(.promoted == true)] | length' "$TEST_TMPDIR/logs/mab-lessons.json" 2>/dev/null || echo "0")
 assert_eq "--dry-run does not mark as promoted" "0" "$dry_promoted"
 
+# --- Test: idempotency — second promotion creates no new files ---
+# Reset directory
+rm -f "$TEST_TMPDIR/docs/lessons"/*.md
+
+cat > "$TEST_TMPDIR/logs/mab-lessons.json" <<'JSON'
+[
+  {"pattern": "idempotent test pattern", "context": "new-file", "winner": "superpowers", "occurrences": 5, "promoted": false}
+]
+JSON
+
+# First run — should create lesson file and mark as promoted
+"$PROMOTE" --worktree "$TEST_TMPDIR" --min-occurrences 3 > /dev/null 2>&1 || true
+first_count=$(find "$TEST_TMPDIR/docs/lessons" -name "*.md" 2>/dev/null | wc -l)
+first_promoted=$(jq '[.[] | select(.promoted == true)] | length' "$TEST_TMPDIR/logs/mab-lessons.json" 2>/dev/null || echo "0")
+
+TESTS=$((TESTS + 1))
+if [[ "$first_count" -ge 1 && "$first_promoted" == "1" ]]; then
+    echo "PASS: idempotency: first run creates file and marks promoted"
+else
+    echo "FAIL: idempotency: first run should create file ($first_count) and mark promoted ($first_promoted)"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Second run — promoted=true guard should prevent new files
+"$PROMOTE" --worktree "$TEST_TMPDIR" --min-occurrences 3 > /dev/null 2>&1 || true
+second_count=$(find "$TEST_TMPDIR/docs/lessons" -name "*.md" 2>/dev/null | wc -l)
+
+assert_eq "idempotency: second run creates no additional files" "$first_count" "$second_count"
+
 report_results

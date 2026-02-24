@@ -119,4 +119,21 @@ update_strategy_perf "$update_file" "new-file" "superpowers"
 sp_wins2=$(jq '."new-file".superpowers.wins' "$update_file" 2>/dev/null)
 assert_eq "superpowers wins incremented again" "2" "$sp_wins2"
 
+# --- Test: thompson_route spread-too-close returns "mab" ---
+# When both strategies have similar win rates (spread < 15%), route to mab.
+# superpowers: 6W/4L = 60%, ralph: 5W/5L = 50% → spread = 10% < 15% → "mab"
+cat > "$TEST_TMPDIR/perf-close.json" <<'JSON'
+{
+  "new-file": {"superpowers": {"wins": 6, "losses": 4}, "ralph": {"wins": 5, "losses": 5}},
+  "refactoring": {"superpowers": {"wins": 6, "losses": 4}, "ralph": {"wins": 5, "losses": 5}},
+  "integration": {"superpowers": {"wins": 6, "losses": 4}, "ralph": {"wins": 5, "losses": 5}},
+  "test-only": {"superpowers": {"wins": 6, "losses": 4}, "ralph": {"wins": 5, "losses": 5}},
+  "calibration_count": 20,
+  "calibration_complete": true
+}
+JSON
+
+route_close=$(thompson_route "new-file" "$TEST_TMPDIR/perf-close.json")
+assert_eq "spread < 15% → mab (too close to call)" "mab" "$route_close"
+
 report_results

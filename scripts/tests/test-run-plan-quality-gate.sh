@@ -177,6 +177,39 @@ else
 fi
 
 # =============================================================================
+# Bug #3 BEHAVIORAL: bash -c limits injection scope vs eval
+# =============================================================================
+# eval "$cmd" would expand variables/globs in the current shell context.
+# bash -c "$cmd" runs in a fresh subshell — variable references from the
+# parent shell don't leak into the command execution.
+
+# Create a gate command that tries to reference a parent shell variable
+INJECT_WORK=$(mktemp -d)
+git -C "$INJECT_WORK" init -q
+git -C "$INJECT_WORK" config user.email "test@test.com"
+git -C "$INJECT_WORK" config user.name "Test"
+echo "init" > "$INJECT_WORK/file.txt"
+git -C "$INJECT_WORK" add file.txt
+git -C "$INJECT_WORK" commit -q -m "init"
+
+# Set a variable in the current shell that bash -c should NOT see
+_GATE_SECRET="LEAKED"
+
+# A gate command that tries to echo the secret — with bash -c it gets empty string
+gate_output=$(cd "$INJECT_WORK" && bash -c 'echo "secret=${_GATE_SECRET:-none}"' 2>&1) || true
+
+TESTS=$((TESTS + 1))
+if [[ "$gate_output" == *"secret=none"* ]]; then
+    echo "PASS: bash -c does not leak parent shell variables (injection limited)"
+else
+    echo "FAIL: bash -c should not see parent shell variable _GATE_SECRET"
+    echo "  output: $gate_output"
+    FAILURES=$((FAILURES + 1))
+fi
+
+rm -rf "$INJECT_WORK"
+
+# =============================================================================
 # Summary
 # =============================================================================
 

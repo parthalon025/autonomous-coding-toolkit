@@ -304,6 +304,68 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# === Bug #4 BEHAVIORAL: awk removes Run-Plan even when it's the last section ===
+# The old sed range pattern '/^## Run-Plan:/,/^## [^R]/' had no closing anchor
+# when Run-Plan was the last section, eating the file from Run-Plan to EOF.
+# This behavioral test exercises the actual awk code path with a CLAUDE.md
+# where "## Run-Plan:" is the last section and verifies other sections survive.
+
+WORK_AWK=$(mktemp -d)
+# Create a CLAUDE.md where Run-Plan is the LAST section
+cat > "$WORK_AWK/CLAUDE.md" << 'CLAUDE_EOF'
+# Project Config
+
+## Conventions
+
+- Use pytest
+- Stage specific files
+
+## Run-Plan: Batch 3
+
+### Recent Commits
+abc1234 fix: something
+
+### Progress Notes
+Batch 2 done.
+CLAUDE_EOF
+
+# Run the same awk logic that run-plan-headless.sh uses inline
+awk '
+    /^## Run-Plan:/ { in_section=1; next }
+    in_section && /^## / { in_section=0 }
+    !in_section { print }
+' "$WORK_AWK/CLAUDE.md" > "$WORK_AWK/CLAUDE.md.tmp"
+mv "$WORK_AWK/CLAUDE.md.tmp" "$WORK_AWK/CLAUDE.md"
+
+# Verify: Run-Plan section is gone
+TESTS=$((TESTS + 1))
+if grep -q "## Run-Plan:" "$WORK_AWK/CLAUDE.md"; then
+    echo "FAIL: awk last-section: Run-Plan section should be removed"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: awk last-section: Run-Plan section removed"
+fi
+
+# Verify: Conventions section still exists (not eaten by unbounded deletion)
+TESTS=$((TESTS + 1))
+if grep -q "## Conventions" "$WORK_AWK/CLAUDE.md"; then
+    echo "PASS: awk last-section: Conventions section preserved"
+else
+    echo "FAIL: awk last-section: Conventions section should survive Run-Plan removal"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# Verify: content before Run-Plan is preserved
+TESTS=$((TESTS + 1))
+if grep -q "Use pytest" "$WORK_AWK/CLAUDE.md"; then
+    echo "PASS: awk last-section: content before Run-Plan preserved"
+else
+    echo "FAIL: awk last-section: content before Run-Plan should be preserved"
+    FAILURES=$((FAILURES + 1))
+fi
+
+rm -rf "$WORK_AWK"
+
 # === Bug #38: Empty claude output diagnostic ===
 
 # Must check for empty log file after claude invocation

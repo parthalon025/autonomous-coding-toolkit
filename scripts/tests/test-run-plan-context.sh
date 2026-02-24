@@ -210,6 +210,91 @@ record_failure_pattern "$WORK" "Test Suite" "flaky assertion" "use deterministic
 count=$(jq 'length' "$WORK/logs/failure-patterns.json")
 assert_eq "record_failure_pattern: adds new pattern" "2" "$count"
 
+# === Bug #60 BEHAVIORAL: whitespace in context_refs is trimmed ===
+# context_refs: " src/lib.sh , tests/test-lib.sh " should resolve both files
+# despite leading/trailing spaces around each path.
+
+WORK_WS=$(mktemp -d)
+trap 'rm -rf "$WORK_WS"' EXIT
+
+# Plan with whitespace-padded context_refs
+cat > "$WORK_WS/test-plan.md" << 'PLAN_WS'
+## Batch 1: Setup
+### Task 1: Init
+Do init work.
+
+## Batch 2: Test whitespace
+### Task 2: Check refs
+context_refs:  src/padded.sh , tests/padded-test.sh
+PLAN_WS
+
+# Create the referenced files
+mkdir -p "$WORK_WS/src" "$WORK_WS/tests"
+echo "PADDED_CONTENT=true" > "$WORK_WS/src/padded.sh"
+echo "PADDED_TEST=true" > "$WORK_WS/tests/padded-test.sh"
+
+# State and git setup
+cat > "$WORK_WS/.run-plan-state.json" << 'JSON_WS'
+{"plan": "test-plan.md", "mode": "headless", "batches": {}}
+JSON_WS
+cd "$WORK_WS" && git init -q && git commit --allow-empty -m "init" -q
+cd - > /dev/null
+
+ctx_ws=$(generate_batch_context "$WORK_WS/test-plan.md" 2 "$WORK_WS")
+
+assert_contains "whitespace-trimmed: padded.sh content included" "PADDED_CONTENT=true" "$ctx_ws"
+assert_contains "whitespace-trimmed: padded-test.sh content included" "PADDED_TEST=true" "$ctx_ws"
+
+# === Bug #50 BEHAVIORAL: non-readable progress.txt propagates error ===
+# When progress.txt exists but has restricted permissions, the tail call should
+# not silently swallow the error — stderr should show the permission denial.
+
+WORK_PERM=$(mktemp -d)
+trap 'rm -rf "$WORK_PERM"' EXIT
+
+mkdir -p "$WORK_PERM/src"
+cat > "$WORK_PERM/test-plan.md" << 'PLAN_PERM'
+## Batch 1: Init
+### Task 1: Do something
+Do something.
+
+## Batch 2: Next
+### Task 2: Do more
+Do more.
+PLAN_PERM
+
+cat > "$WORK_PERM/.run-plan-state.json" << 'JSON_PERM'
+{"plan": "test-plan.md", "mode": "headless", "batches": {"1": {"passed": true, "test_count": 10, "duration": 30}}}
+JSON_PERM
+
+# Create an unreadable progress.txt (note: this only works when not root)
+echo "some progress" > "$WORK_PERM/progress.txt"
+chmod 000 "$WORK_PERM/progress.txt"
+
+cd "$WORK_PERM" && git init -q && git commit --allow-empty -m "init" -q
+cd - > /dev/null
+
+# build_variable_suffix should produce stderr when progress.txt is unreadable
+# (the fix removed || true, so tail's permission error is visible)
+prompt_stderr=""
+prompt_stderr=$(build_variable_suffix "$WORK_PERM/test-plan.md" 2 "$WORK_PERM" 10 2>&1 >/dev/null) || true
+
+TESTS=$((TESTS + 1))
+# Only check if we're not root (root can read anything)
+if [[ "$(id -u)" -eq 0 ]]; then
+    echo "PASS: (skipped — running as root, permission test not applicable)"
+else
+    if [[ -n "$prompt_stderr" ]]; then
+        echo "PASS: unreadable progress.txt: error propagated to stderr"
+    else
+        echo "FAIL: unreadable progress.txt: error should propagate (not suppressed by || true)"
+        FAILURES=$((FAILURES + 1))
+    fi
+fi
+
+# Cleanup (restore permission before rm can work)
+chmod 644 "$WORK_PERM/progress.txt" 2>/dev/null || true
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
