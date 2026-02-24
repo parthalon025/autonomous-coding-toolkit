@@ -1,6 +1,17 @@
 {
-  "description": "Ralph Loop plugin stop hook for self-referential loops",
+  "description": "Autonomous Coding Toolkit hooks — setup and Ralph loop",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/setup-symlinks.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

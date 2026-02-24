@@ -4,7 +4,7 @@
 # Exit 0 if clean, exit 1 with file:line: [lesson-N] format if violations found.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 LESSONS_DIR="${LESSONS_DIR:-$SCRIPT_DIR/../docs/lessons}"
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 # Reads lesson content and applies heuristics to propose scope tags.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # Defaults
 LESSONS_DIR="$SCRIPT_DIR/../docs/lessons"

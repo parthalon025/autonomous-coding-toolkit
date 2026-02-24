@@ -18,7 +18,7 @@
 #   -h, --help            Show this help
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # Source dependencies
 source "$SCRIPT_DIR/lib/thompson-sampling.sh"

@@ -51,16 +51,32 @@ fi
 # Extract all command paths from hooks — walks the entire JSON tree for "command" keys
 commands=$(jq -r '.. | objects | select(.type == "command") | .command' "$hooks_file" 2>/dev/null || true)
 
-for cmd in $commands; do
+while IFS= read -r cmd; do
+    [[ -z "$cmd" ]] && continue
     # Resolve ${CLAUDE_PLUGIN_ROOT} to toolkit root
     resolved="${cmd//\$\{CLAUDE_PLUGIN_ROOT\}/$TOOLKIT_ROOT}"
 
-    if [[ ! -f "$resolved" ]]; then
-        report_violation "hooks.json" "script not found: $cmd (resolved: $resolved)"
-    elif [[ ! -x "$resolved" ]]; then
-        report_violation "hooks.json" "script not executable: $cmd (resolved: $resolved)"
+    # Extract the script path (last token that looks like a file path)
+    # Handles "bash /path/to/script.sh" and "/path/to/script.sh" alike
+    script_path="$resolved"
+    for token in $resolved; do
+        if [[ "$token" == /* || "$token" == \$* ]]; then
+            script_path="$token"
+            break
+        fi
+    done
+
+    # Skip if the resolved path is just a bare command (e.g., "bash" — not a file check target)
+    if [[ "$script_path" != */* ]]; then
+        continue
     fi
-done
+
+    if [[ ! -f "$script_path" ]]; then
+        report_violation "hooks.json" "script not found: $cmd (resolved: $script_path)"
+    elif [[ ! -x "$script_path" ]]; then
+        report_violation "hooks.json" "script not executable: $cmd (resolved: $script_path)"
+    fi
+done <<< "$commands"
 
 if [[ $violations -gt 0 ]]; then
     echo ""

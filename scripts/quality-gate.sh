@@ -3,7 +3,7 @@
 # Runs lesson check + project test suite in sequence, fails fast on first failure.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 PROJECT_ROOT=""
 QUICK=false
