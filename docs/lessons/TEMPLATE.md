@@ -15,6 +15,7 @@ pattern:
   regex: "<grep -P pattern>"       # Required for syntactic, omit for semantic
   description: "<what to look for>"
 fix: "<one-line description of the correct approach>"
+positive_alternative: "<optional — what TO DO instead, phrased positively>"
 example:
   bad: |
     <2-5 lines showing the anti-pattern>
@@ -52,6 +53,9 @@ example:
 | `integration-boundaries` | Cross-module bugs, path issues, API contract mismatches |
 | `test-anti-patterns` | Brittle assertions, mocking the wrong thing, false confidence |
 | `performance` | Missing filters, unnecessary work, resource waste |
+| `specification-drift` | Misinterpreted requirements, wrong implementation, plan quality failures |
+| `context-retrieval` | Lost context, stale injection, misscoped lessons, ephemeral research |
+| `planning-control-flow` | Wrong decomposition, missing integration wiring, cherry-pick conflicts |
 
 ### Scope (Project-Level Filtering)
 Scope controls which projects a lesson applies to. Language filtering (`languages:`) picks files; scope filtering picks projects. Both are orthogonal.

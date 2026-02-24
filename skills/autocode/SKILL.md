@@ -19,12 +19,14 @@ Do NOT skip any stage. Do NOT proceed to the next stage until the current stage'
 You MUST create a task for each of these items and complete them in order:
 
 1. **Initialize pipeline** — detect project, set up Telegram, create progress.txt
-2. **Stage 1: Brainstorm** — invoke `autonomous-coding-toolkit:brainstorming`, produce approved design
-3. **Stage 2: PRD** — generate `tasks/prd.json` with machine-verifiable acceptance criteria
-4. **Stage 3: Plan** — invoke `autonomous-coding-toolkit:writing-plans`, produce batch plan
-5. **Stage 4: Execute** — run batches with quality gates, update PRD and progress.txt
-6. **Stage 5: Verify** — invoke `autonomous-coding-toolkit:verification-before-completion`, all PRD criteria pass
-7. **Stage 6: Finish** — invoke `autonomous-coding-toolkit:finishing-a-development-branch`, merge/PR/keep/discard
+2. **Stage 0.5: Roadmap** (conditional) — invoke `autonomous-coding-toolkit:roadmap`, decompose multi-feature epic
+3. **Stage 1: Brainstorm** — invoke `autonomous-coding-toolkit:brainstorming`, produce approved design
+4. **Stage 1.5: Research** — invoke `autonomous-coding-toolkit:research`, investigate unknowns, produce research artifacts
+5. **Stage 2: PRD** — generate `tasks/prd.json` with machine-verifiable acceptance criteria
+6. **Stage 3: Plan** — invoke `autonomous-coding-toolkit:writing-plans`, produce batch plan
+7. **Stage 4: Execute** — run batches with quality gates, update PRD and progress.txt
+8. **Stage 5: Verify** — invoke `autonomous-coding-toolkit:verification-before-completion`, all PRD criteria pass
+9. **Stage 6: Finish** — invoke `autonomous-coding-toolkit:finishing-a-development-branch`, merge/PR/keep/discard
 
 ## Arguments
 
@@ -59,6 +61,25 @@ The user provides a feature description, report path, or issue reference:
 
 ---
 
+### Stage 0.5: Roadmap (conditional)
+
+If the input describes multiple features (3+ distinct features, "roadmap" keyword, or an epic), invoke `autonomous-coding-toolkit:roadmap` to decompose it.
+
+This stage produces:
+- `tasks/roadmap.md` with dependency-ordered feature list
+- Phase groupings with effort estimates
+- User approval of feature ordering
+
+**Skip condition:** Single-feature inputs skip directly to Stage 1. When in doubt, check: does the input contain multiple independent deliverables?
+
+After roadmap approval, the pipeline loops through features in order — each feature runs Stages 1-6 independently.
+
+**Exit criteria:** `tasks/roadmap.md` exists and user approves feature ordering.
+
+**Telegram:** `✅ Stage 0.5 complete: Roadmap approved — <N> features, <M> phases`
+
+---
+
 ### Stage 1: Brainstorm
 
 Invoke `autonomous-coding-toolkit:brainstorming` with the feature description.
@@ -73,9 +94,28 @@ This stage produces:
 
 ---
 
+### Stage 1.5: Research (conditional)
+
+After design approval, check if the feature involves technical unknowns, unfamiliar libraries, or integration with existing code. If so, invoke `autonomous-coding-toolkit:research`.
+
+This stage produces:
+- Research report at `tasks/research-<slug>.md`
+- Machine-readable findings at `tasks/research-<slug>.json`
+- Resolution of all blocking issues (or user override)
+
+**Skip condition:** If the brainstorming phase resolved all technical questions and no unknowns remain, this stage can be skipped. When in doubt, run it — 30 minutes of research prevents hours of rework.
+
+**Gate:** Run `scripts/research-gate.sh tasks/research-<slug>.json` — blocks if unresolved blocking issues exist. Use `--force` to override.
+
+**Exit criteria:** Research artifacts exist, research gate passes (or user overrides).
+
+**Telegram:** `✅ Stage 1.5 complete: Research done — <N> questions, <M> warnings`
+
+---
+
 ### Stage 2: PRD Generation
 
-After design approval, generate `tasks/prd.json` using the `/create-prd` format:
+After design approval (and research if conducted), generate `tasks/prd.json` using the `/create-prd` format:
 - 8-15 granular tasks with machine-verifiable acceptance criteria
 - Every acceptance criterion is a shell command (exit 0 = pass)
 - Separate investigation tasks from implementation tasks
@@ -116,6 +156,7 @@ Ask the user which execution mode to use:
 | **Subagent** | 5-15 independent tasks | `autonomous-coding-toolkit:subagent-driven-development` |
 | **Headless** | 4+ batches, unattended | `scripts/run-plan.sh <plan> --notify` |
 | **Ralph loop** | Iterate until done | `/ralph-loop` with completion promise |
+| **MAB** | Learn best strategy per batch type | `scripts/run-plan.sh <plan> --mab --notify` |
 
 #### For in-session and subagent modes:
 

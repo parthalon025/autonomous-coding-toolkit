@@ -82,6 +82,31 @@ generate_batch_context() {
         fi
     fi
 
+    # 2.6. Research warnings (from tasks/research-*.json)
+    local research_files
+    research_files=$(find "$worktree/tasks" -name 'research-*.json' 2>/dev/null || true)
+    if [[ -n "$research_files" ]]; then
+        local research_section=""
+        while IFS= read -r rfile; do
+            [[ -z "$rfile" ]] && continue
+            local warnings
+            warnings=$(jq -r '.warnings[]? // empty' "$rfile" 2>/dev/null || true)
+            if [[ -n "$warnings" ]]; then
+                local feature_name
+                feature_name=$(jq -r '.feature // "unknown"' "$rfile" 2>/dev/null || echo "unknown")
+                research_section+="### Research Warnings ($feature_name)"$'\n'
+                while IFS= read -r w; do
+                    research_section+="- $w"$'\n'
+                done <<< "$warnings"
+                research_section+=$'\n'
+            fi
+        done <<< "$research_files"
+        if [[ -n "$research_section" ]] && [[ $((chars_used + ${#research_section})) -lt $TOKEN_BUDGET_CHARS ]]; then
+            context+="$research_section"
+            chars_used=$((chars_used + ${#research_section}))
+        fi
+    fi
+
     # 3. Context refs file contents (if budget allows)
     local refs
     refs=$(get_batch_context_refs "$plan_file" "$batch_num" 2>/dev/null || true)

@@ -118,20 +118,37 @@ else
 fi
 echo ""
 
-# Step 2.5: Prior art search
-echo "🔎 Step 2.5: Searching for prior art..."
+# Step 2.5: Research phase
+echo "🔎 Step 2.5: Running research phase..."
 if [[ "$DRY_RUN" == "true" ]]; then
-  echo "  [dry-run] Would search: $PRIORITY"
+  echo "  [dry-run] Would research: $PRIORITY"
 else
-  PRIOR_ART=$("$SCRIPT_DIR/prior-art-search.sh" "$PRIORITY" 2>&1 || true)
-  echo "$PRIOR_ART" | head -20
-  # Save for PRD context
-  echo "$PRIOR_ART" > prior-art-results.txt
-  echo "  Saved to prior-art-results.txt"
+  mkdir -p tasks
+  RESEARCH_SLUG=$(echo "$FEATURE_SLUG" | cut -c1-30)
+  RESEARCH_JSON="tasks/research-${RESEARCH_SLUG}.json"
+
+  # Run research via Claude (produces tasks/research-*.md and tasks/research-*.json)
+  research_output=$(claude --print "Use the research skill to investigate: $PRIORITY. Design context: $(cat analysis.json). Write findings to tasks/research-${RESEARCH_SLUG}.md and tasks/research-${RESEARCH_SLUG}.json" 2>&1) || {
+      echo "WARNING: Research phase failed (non-fatal):" >&2
+      echo "$research_output" | tail -10 >&2
+  }
+
+  # Check research gate
+  if [[ -f "$RESEARCH_JSON" ]]; then
+      "$SCRIPT_DIR/research-gate.sh" "$RESEARCH_JSON" || {
+          echo "BLOCKED: Unresolved research issues. Resolve or re-run with --force on research-gate.sh" >&2
+          exit 1
+      }
+      echo "  Research gate: clear"
+  else
+      echo "  No research JSON produced (continuing without research context)"
+  fi
 
   # Append to progress.txt
-  echo "## Prior Art Search: $PRIORITY" >> progress.txt
-  echo "$PRIOR_ART" | head -10 >> progress.txt
+  echo "## Research: $PRIORITY" >> progress.txt
+  if [[ -f "$RESEARCH_JSON" ]]; then
+      jq -r '.recommended_approach // "No approach documented"' "$RESEARCH_JSON" >> progress.txt
+  fi
   echo "" >> progress.txt
 fi
 echo ""
@@ -143,13 +160,15 @@ if [[ "$DRY_RUN" == "true" ]]; then
   echo "  [dry-run] Would create tasks/prd.json"
 else
   mkdir -p tasks
-  # Include prior art if available
-  prior_art_context=""
-  if [[ -f "prior-art-results.txt" ]]; then
-      prior_art_context=" Prior art found: $(head -20 prior-art-results.txt)"
+  # Include research context if available
+  research_context=""
+  RESEARCH_SLUG=$(echo "$FEATURE_SLUG" | cut -c1-30)
+  RESEARCH_JSON="tasks/research-${RESEARCH_SLUG}.json"
+  if [[ -f "$RESEARCH_JSON" ]]; then
+      research_context=" Research findings: $(jq -c '{approach: .recommended_approach, warnings: .warnings, dependencies: .dependencies}' "$RESEARCH_JSON" 2>/dev/null || echo "{}")"
   fi
   # Use Claude to generate the PRD
-  prd_output=$(claude --print "/create-prd $PRIORITY. Context from analysis: $(cat analysis.json).$prior_art_context" 2>&1) || {
+  prd_output=$(claude --print "/create-prd $PRIORITY. Context from analysis: $(cat analysis.json).$research_context" 2>&1) || {
       echo "WARNING: PRD generation failed:" >&2
       echo "$prd_output" | tail -10 >&2
   }

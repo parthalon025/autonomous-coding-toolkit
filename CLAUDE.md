@@ -11,7 +11,7 @@ This toolkit implements an **autonomous coding pipeline**: you write a plan in m
 Skills are loaded by Claude Code and define HOW to execute each stage. The `autocode` skill orchestrates the full chain:
 
 ```
-/autocode → brainstorming → PRD → writing-plans → using-git-worktrees → [execution mode] → verification-before-completion → finishing-a-development-branch
+/autocode → [roadmap] → brainstorming → [research] → PRD → writing-plans → using-git-worktrees → [execution mode] → verification-before-completion → finishing-a-development-branch
 ```
 
 | Stage | Skill | Purpose |
@@ -83,11 +83,22 @@ commands/                        # Claude Code slash commands
 └── submit-lesson.md             # /submit-lesson — community lesson PR
 
 agents/                          # Agent definitions (dispatched via Task tool)
-└── lesson-scanner.md            # Dynamic anti-pattern scanner from lesson files
+├── lesson-scanner.md            # Dynamic anti-pattern scanner from lesson files
+├── bash-expert.md               # Shell script review and debugging
+├── shell-expert.md              # systemd/service diagnosis and remediation
+├── python-expert.md             # Python async, lifecycle, type safety review
+├── integration-tester.md        # Cross-service data flow verification
+├── dependency-auditor.md        # CVE scan, outdated packages, license compliance
+└── service-monitor.md           # systemd service/timer health monitoring
 
 hooks/                           # Claude Code event hooks
 ├── hooks.json                   # Stop hook registration
 └── stop-hook.sh                 # Ralph loop stop-hook interceptor
+
+skills/                          (continued)
+├── research/SKILL.md            # Structured investigation → durable artifacts
+├── roadmap/SKILL.md             # Multi-feature epic decomposition
+└── autocode/SKILL.md            # Full pipeline orchestrator (9 stages)
 
 scripts/                         # Bash scripts for headless execution
 ├── run-plan.sh                  # Main runner (3 modes: headless/team/competitive)
@@ -95,10 +106,18 @@ scripts/                         # Bash scripts for headless execution
 ├── setup-ralph-loop.sh          # Ralph loop state file initialization
 ├── quality-gate.sh              # Composite gate: lesson-check + tests + memory
 ├── lesson-check.sh              # Dynamic anti-pattern detector (reads lesson files)
-├── auto-compound.sh             # Full pipeline: report → PRD → execute → PR
+├── research-gate.sh             # Blocks PRD if unresolved research issues
+├── policy-check.sh              # Advisory positive-pattern checker
+├── auto-compound.sh             # Full pipeline: report → research → PRD → execute → PR
 ├── entropy-audit.sh             # Detect doc drift, naming violations
 ├── batch-audit.sh               # Cross-project audit runner
 └── batch-test.sh                # Memory-aware cross-project test runner
+
+policies/                        # Positive pattern definitions
+├── universal.md                 # Cross-language patterns
+├── python.md                    # Python-specific patterns
+├── bash.md                      # Bash-specific patterns
+└── testing.md                   # Testing patterns
 
 docs/
 ├── ARCHITECTURE.md              # Full system architecture
@@ -106,12 +125,14 @@ docs/
 └── lessons/
     ├── FRAMEWORK.md             # Lesson capture methodology
     ├── TEMPLATE.md              # Template for new lessons (YAML schema)
-    ├── 0001-*.md through 0006-*.md  # Starter lessons
-    └── ...                      # Community-contributed lessons
+    ├── 0001-*.md through 0079-*.md  # 79 lessons across 6 clusters
+    └── SUMMARY.md               # Quick reference + cluster mitigations
 
 examples/
 ├── example-plan.md              # Sample implementation plan
-└── example-prd.json             # Sample PRD with shell-command criteria
+├── example-prd.json             # Sample PRD with shell-command criteria
+├── quickstart-plan.md           # Minimal 2-batch getting-started plan
+└── example-roadmap.md           # Sample multi-feature roadmap
 ```
 
 ## Installation
@@ -207,24 +228,3 @@ language:bash, project:autonomous-coding-toolkit
 - Brainstorming is mandatory before any new feature — no exceptions
 - No completion claims without fresh verification evidence
 
-## Run-Plan: Batch 5
-
-
-### Recent Commits
-504dd75 feat: add validate-plugin, validate-hooks, validate-all with tests
-aca7912 fix: add SIGPIPE trap — confirmed root cause of silent death (exit 141)
-c91e272 fix: add signal handling and non-critical command guards to run-plan.sh
-404ade0 feat: add validate-plans.sh and validate-prd.sh with tests
-4bc8ca4 docs: add Telegram notification format spec
-
-### Progress Notes
-| validate-plugin.sh | 77 (new) |
-| validate-hooks.sh | 68 (new) |
-| validate-all.sh | 53 (new) |
-
-### Decisions
-- validate-all runs validators silently (>/dev/null 2>&1) and reports only PASS/FAIL — individual validators can be run standalone for details
-- validate-all skips missing validators with SKIP instead of failing — forward-compatible with future validators
-- validate-plugin extracts marketplace version from `.plugins[0].version` (first plugin entry)
-- validate-hooks uses jq recursive descent (`.. | objects | select(.type == "command")`) to find all command hooks regardless of nesting depth
-- Pre-existing validate-skills failures (code-factory missing SKILL.md, using-git-worktrees referencing CLAUDE.md) — validate-all test accounts for this by using --warn for the pass test and verifying FAIL reporting separately

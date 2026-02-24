@@ -8,7 +8,7 @@ PASS_ARGS=()
 
 usage() {
     echo "Usage: validate-all.sh [--warn] [--help]"
-    echo "  Runs all repo-level validators (lessons, skills, commands, plugin, hooks)"
+    echo "  Runs all repo-level validators (lessons, skills, commands, plugin, hooks, policies)"
     echo "  --warn   Pass --warn to all validators (print violations but exit 0)"
     exit 0
 }
@@ -22,6 +22,7 @@ validators=(
     validate-commands
     validate-plugin
     validate-hooks
+    validate-policies
 )
 
 total=${#validators[@]}

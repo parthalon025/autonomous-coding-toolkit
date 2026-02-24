@@ -17,8 +17,21 @@ IDEA
   │
   ▼
 ┌─────────────────┐
+│   ROADMAP        │  Decompose multi-feature epics (conditional)
+│   (Stage 0.5)   │  Output: tasks/roadmap.md (dependency-ordered features)
+└────────┬────────┘
+         │ (loops per feature)
+         ▼
+┌─────────────────┐
 │   BRAINSTORMING  │  Explore intent, ask questions, propose approaches
-│   (mandatory)    │  Output: design doc (docs/plans/YYYY-MM-DD-*-design.md)
+│   (Stage 1)     │  Output: design doc (docs/plans/YYYY-MM-DD-*-design.md)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   RESEARCH       │  Investigate unknowns, resolve blockers (conditional)
+│   (Stage 1.5)   │  Output: tasks/research-<slug>.md + .json
+│                  │  Gate: research-gate.sh (blocks if unresolved issues)
 └────────┬────────┘
          │
          ▼
@@ -205,6 +218,7 @@ Each `claude -p` is a fresh process with a fresh context window. No degradation 
 | Headless | `--mode headless` (default) | Bash loop, `claude -p` per batch |
 | Team | `--mode team` | Leader session spawns implementer + reviewer agents per batch |
 | Competitive | `--mode competitive` | Two agents implement same batch in separate worktrees, judge picks winner |
+| MAB | `--mab` | Thompson Sampling routes to best strategy; uncertain batches trigger competitive dual-track |
 
 **Competitive dual-track** (for critical batches):
 ```
@@ -222,6 +236,38 @@ Leader
   ├── Cherry-pick winner into main worktree
   └── Cleanup both competitor worktrees
 ```
+
+#### Mode E: Multi-Armed Bandit (`--mab`)
+
+**Best for:** Plans where you want the system to learn which execution strategy works best per batch type.
+
+**How it works:** Thompson Sampling routes each batch to either "superpowers" (TDD-style subagent) or "ralph" (iterative loop) strategy. Uncertain batches trigger competitive dual-track execution where both strategies run in parallel worktrees and an LLM judge picks the winner.
+
+```
+Batch arrives
+  │
+  ├── strategy-perf.json has < 5 data points per strategy
+  │     → "mab" — compete (both strategies, parallel worktrees)
+  │
+  ├── integration batch type
+  │     → "mab" — always compete (most variable outcome)
+  │
+  ├── Clear winner (≥70% win rate, 10+ data points)
+  │     → route directly to winning strategy
+  │
+  └── Otherwise
+        → Thompson sample from Beta(wins+1, losses+1) for each strategy
+        → route to highest sample
+```
+
+**Key components:**
+- **`scripts/lib/thompson-sampling.sh`** — Beta approximation using Box-Muller, routing logic with calibration thresholds
+- **`logs/strategy-perf.json`** — Win/loss counters per strategy per batch type (new-file, refactoring, integration, test-only)
+- **`logs/mab-lessons.json`** — Patterns the LLM judge observes during competitive runs (auto-promoted at 3+ occurrences)
+- **Human calibration** — First 10 decisions default to competitive mode to build a baseline before the sampling model takes over
+- **Quality gate override** — If the judge's pick fails the quality gate but the loser passes, the loser wins regardless of judge score
+
+Enable with `--mab` flag on `run-plan.sh`.
 
 #### Mode D: Ralph Loop (autonomous iteration)
 
@@ -296,6 +342,15 @@ Quality gates run between every batch in every execution mode. They are the enfo
            │ if clean
            ▼
 ┌─────────────────────────────┐
+│   ast-grep patterns          │  5 structural code patterns:
+│   (scripts/patterns/*.yml)   │   - bare-except, empty-catch
+│                              │   - async-no-await
+│                              │   - retry-loop-no-backoff
+│                              │   - hardcoded-localhost
+└──────────┬──────────────────┘
+           │ if clean
+           ▼
+┌─────────────────────────────┐
 │   Test suite                 │  Auto-detected:
 │   (pytest / npm test / make) │  pytest / npm test / make test
 └──────────┬──────────────────┘
@@ -317,6 +372,13 @@ Quality gates run between every batch in every execution mode. They are the enfo
 ┌─────────────────────────────┐
 │   Git clean check            │  All changes committed
 │                              │  No leftover unstaged work
+└──────────┬──────────────────┘
+           │ if clean
+           ▼
+┌─────────────────────────────┐
+│   MAB lessons injection      │  Inject judge observations
+│   (--mab mode only)          │  from logs/mab-lessons.json
+│                              │  into next batch context
 └──────────┬──────────────────┘
            │ if clean
            ▼
@@ -359,6 +421,21 @@ Read at the start of each batch/iteration to give the agent memory across contex
 ]
 ```
 Updated after each batch. `"passes": true` is set when all acceptance criteria exit 0. Verification stage requires every task to pass.
+
+### `logs/failure-patterns.json` (cross-run failure learning)
+Tracks failure types, frequencies, and winning fixes indexed by batch title pattern. Fed into the next run's context injection so agents don't repeat the same mistakes.
+
+### `logs/routing-decisions.log` (execution traceability)
+Append-only log of mode selection, model routing, and parallelism scores for each batch. Enables post-run analysis of why specific strategies were chosen.
+
+### `logs/sampling-outcomes.json` (prompt variant learning)
+Records which sampling strategy (prompt variant) won per batch type. Used by `--sample N` to weight future variant selection.
+
+### `logs/strategy-perf.json` (MAB Thompson Sampling data)
+Win/loss counters per strategy (superpowers, ralph) per batch type (new-file, refactoring, integration, test-only). The Thompson Sampling routing in `--mab` mode reads this to decide whether to compete or route directly.
+
+### `logs/mab-lessons.json` (MAB judge observations)
+Patterns observed by the LLM judge during competitive runs. When a pattern reaches 3+ occurrences, it is auto-promoted into the context injection for future batches.
 
 ## Feedback Loops
 
@@ -419,6 +496,24 @@ Every user's next scan catches that anti-pattern
 
 Adding a lesson file is all it takes — no code changes to the scanner or check script.
 
+### Scope Metadata (Project-Level Filtering)
+
+Not every lesson applies to every project. The `scope:` field on each lesson enables project-level filtering so lessons only fire where they're relevant.
+
+**How it works:**
+
+1. Each lesson has a `scope:` YAML field with tags like `[universal]`, `[language:python]`, `[project:ha-aria]`
+2. Each project's `CLAUDE.md` declares `## Scope Tags` (e.g., `language:python, framework:pytest, project:ha-aria`)
+3. `detect_project_scope()` reads `CLAUDE.md` from the working directory and extracts these tags
+4. `scope_matches()` computes the intersection — a lesson applies if any of its scope tags match the project's tags (or if the lesson is `[universal]`)
+
+**CLI flags on `lesson-check.sh`:**
+- `--all-scopes` — Ignore scope filtering, scan everything (useful for cross-project audits)
+- `--show-scope` — Display the scope tags for each matched lesson
+- `--scope <tags>` — Override project scope detection with explicit tags
+
+**Design rationale:** Without scope metadata, false positives compound — at ~100 lessons, research shows 67% of flagged violations are irrelevant to the current project. Scope filtering keeps the signal-to-noise ratio high as the lesson library grows.
+
 ### Hookify (Real-Time Enforcement)
 
 Hookify rules run on every file write and commit. They are the last line of defense:
@@ -429,6 +524,59 @@ Hookify rules run on every file write and commit. They are the last line of defe
 - **force-push:** Block `git push --force` and `-f`
 
 Design rule: Syntactic patterns (near-zero false positives) → lesson files with `pattern.type: syntactic` → `lesson-check.sh`. Semantic patterns (needs context) → lesson files with `pattern.type: semantic` → `lesson-scanner` agent. Reserve hookify for behavioral/workflow enforcement (process violations, security boundaries).
+
+## Agent Suite
+
+The toolkit ships with 7 agents in the `agents/` directory, dispatched via Claude Code's Task tool. Each serves a distinct role in the quality pipeline.
+
+| Agent | Model | Purpose | When to Use |
+|-------|-------|---------|-------------|
+| `lesson-scanner` | sonnet | Dynamic anti-pattern scan from lesson files | Verification stage, post-commit audit |
+| `bash-expert` | sonnet | Review, write, debug bash scripts | .sh files, CI steps, Makefile targets |
+| `shell-expert` | sonnet | Diagnose systemd, PATH, permissions | Service failures, environment issues |
+| `python-expert` | sonnet | Async discipline, resource lifecycle, type safety | Python code review, HA/Telegram ecosystem |
+| `integration-tester` | opus | Verify data flows across service seams | After deployments, timer failures, pipeline validation |
+| `dependency-auditor` | haiku | CVE scan, outdated packages, license compliance | Periodic audits, pre-release checks |
+| `service-monitor` | sonnet | Deep systemd service + timer investigation | When infra-auditor flags issues |
+
+**Agent chains** (manual, not yet automated):
+1. **Post-commit:** security-reviewer → lesson-scanner → doc-updater
+2. **Service triage:** infra-auditor (detect) → shell-expert (investigate) → service-monitor (verify)
+3. **Pre-release:** dependency-auditor → integration-tester → lesson-scanner
+
+## Research Phase (Stage 1.5)
+
+After design approval and before PRD generation, the optional research phase investigates technical unknowns. This prevents the most expensive failure mode: building the wrong thing correctly.
+
+**Artifacts produced:**
+- `tasks/research-<slug>.md` — human-readable report (questions, findings, recommendations)
+- `tasks/research-<slug>.json` — machine-readable output with `blocking_issues`, `warnings`, `dependencies`, `confidence_ratings`
+
+**Gate:** `scripts/research-gate.sh` reads the JSON and blocks PRD generation if any `blocking_issues` have `resolved: false`. Use `--force` to override. The gate integrates with both the interactive pipeline (`skills/autocode/SKILL.md`) and the headless pipeline (`scripts/auto-compound.sh`).
+
+**Context injection:** `scripts/lib/run-plan-context.sh` reads research warnings from all `tasks/research-*.json` files and injects them into batch context within the token budget. This ensures agents see relevant warnings even when research was done in a prior session.
+
+## Roadmap Stage (Stage 0.5)
+
+For multi-feature epics (3+ features or "roadmap" keyword), the roadmap stage decomposes the work before brainstorming begins. Each feature then runs the full Stage 1-6 pipeline independently.
+
+**Artifact:** `tasks/roadmap.md` with dependency-ordered features, phase groupings, complexity estimates, and risk ratings.
+
+**When it activates:** Automatically when autocode detects multi-feature input. Skipped for single-feature work.
+
+## Positive Policy System
+
+Policies are the complement to lessons — instead of "don't do X" (negative, lesson-based), policies say "always do Y" (positive, pattern-based). Research (#62) shows positive instructions outperform negative ones for LLMs.
+
+**Policy files** in `policies/`:
+| File | Scope | Patterns |
+|------|-------|----------|
+| `universal.md` | All projects | Error visibility, test before ship, fresh context, durable artifacts |
+| `python.md` | Python projects | Async discipline, closing(), create_task callbacks, pip via module |
+| `bash.md` | Shell scripts | Strict mode, quoting, subshell cd, temp cleanup, atomic writes |
+| `testing.md` | All test files | No hardcoded counts, boundary testing, test the test, live > static |
+
+**Checker:** `scripts/policy-check.sh` — advisory by default (always exits 0). Use `--strict` to exit non-zero on violations. Auto-detects project language and runs applicable checks.
 
 ## Entropy Management
 

@@ -1,6 +1,6 @@
 # Lessons Learned — Summary
 
-64 lessons captured from autonomous coding workflows. Each is a standalone markdown file with YAML frontmatter, grep-detectable patterns (syntactic) or AI-reviewable descriptions (semantic), and concrete fix guidance.
+79 lessons captured from autonomous coding workflows. Each is a standalone markdown file with YAML frontmatter, grep-detectable patterns (syntactic) or AI-reviewable descriptions (semantic), and concrete fix guidance.
 
 ## Quick Reference
 
@@ -70,6 +70,21 @@
 | 0062 | Sibling bugs hide next to the fix | integration-boundaries | should-fix | semantic |
 | 0063 | One boolean flag serving two lifetimes is a conflation bug | silent-failures | should-fix | semantic |
 | 0064 | Tests that pass for the wrong reason provide false confidence | test-anti-patterns | should-fix | syntactic |
+| 0065 | pipefail grep count double output | silent-failures | should-fix | syntactic |
+| 0066 | local keyword outside function | silent-failures | blocker | syntactic |
+| 0067 | stdin hang non-interactive shell | silent-failures | should-fix | semantic |
+| 0068 | Agent builds the wrong thing correctly | specification-drift | blocker | semantic |
+| 0069 | Plan quality dominates execution quality 3:1 | specification-drift | should-fix | semantic |
+| 0070 | Spec echo-back prevents 60% of agent failures | specification-drift | should-fix | semantic |
+| 0071 | Positive instructions outperform negative ones for LLMs | specification-drift | should-fix | semantic |
+| 0072 | Lost in the Middle — context placement affects accuracy 20pp | context-retrieval | should-fix | semantic |
+| 0073 | Unscoped lessons cause 67% false positive rate at scale | context-retrieval | should-fix | semantic |
+| 0074 | Stale context injection sends wrong batch's state | context-retrieval | should-fix | semantic |
+| 0075 | Research artifacts must persist — ephemeral research is wasted | context-retrieval | should-fix | semantic |
+| 0076 | Wrong decomposition contaminates all downstream batches | planning-control-flow | blocker | semantic |
+| 0077 | Cherry-pick merges from parallel worktrees need manual resolution | planning-control-flow | should-fix | semantic |
+| 0078 | Static review without live test optimizes for wrong risk class | planning-control-flow | should-fix | semantic |
+| 0079 | Multi-batch plans need explicit integration wiring batch | planning-control-flow | should-fix | semantic |
 
 ## Root Cause Clusters
 
@@ -104,6 +119,36 @@ Works in steady state, fails on restart or first boot. The system depends on sta
 **Pattern:** The system is designed for the happy path (events flowing, caches warm, registries populated) and never tested from a cold start. First-boot behavior is an afterthought — or never thought of at all.
 
 **Defense:** Test every component from empty state. Seed current state on startup via REST/query (0016). Checkpoint state incrementally (0020). Validate initialization rather than falling back silently (0039).
+
+### Cluster D: Specification Drift
+
+The agent builds the wrong thing correctly. Code passes tests, but tests validate the agent's interpretation — not the user's intent. The spec was misunderstood, and no echo-back step caught it.
+
+**Lessons:** 0068, 0069, 0070, 0071
+
+**Pattern:** The agent reads requirements, forms an interpretation, writes code and tests against that interpretation, and everything passes. The divergence from user intent is invisible because the feedback loop is closed — the agent grades its own homework.
+
+**Defense:** Echo back requirements before implementing. Score plan quality before execution. Use positive instructions ("do Y") instead of negative ("don't do X"). The echo-back gate catches 60%+ of failures.
+
+### Cluster E: Context & Retrieval
+
+Information is available but buried, misscoped, or placed in the wrong position within the context window. The agent has access to the right data but doesn't use it effectively.
+
+**Lessons:** 0072, 0073, 0074, 0075
+
+**Pattern:** Critical requirements are lost in the middle of long context (0072), irrelevant lessons fire due to missing scope (0073), stale context from a previous batch pollutes the current one (0074), or research findings exist only in conversation and are lost on context reset (0075).
+
+**Defense:** Place task at top, requirements at bottom (U-shaped attention). Scope lessons to projects. Use ephemeral context injection for batch-scoped data. Always write research to files.
+
+### Cluster F: Planning & Control Flow
+
+The plan itself is wrong — wrong decomposition, wrong integration assumptions, or wrong verification strategy. Individual batches execute correctly but the overall result is broken.
+
+**Lessons:** 0076, 0077, 0078, 0079
+
+**Pattern:** Decomposition errors compound downstream (0076), parallel worktree merges need semantic conflict resolution (0077), static review alone misses runtime bugs (0078), and components built in separate batches are never wired together (0079).
+
+**Defense:** Validate decomposition before execution. Add explicit integration wiring batches. Combine static review with live testing. Use interactive conflict resolution for cherry-picks.
 
 ## Six Rules to Build By
 
