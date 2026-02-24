@@ -69,7 +69,9 @@ generate_batch_context() {
     if [[ -n "$refs" ]]; then
         local refs_section="### Referenced Files"$'\n'
         while IFS= read -r ref_file; do
-            ref_file=$(echo "$ref_file" | xargs)  # trim whitespace
+            # Trim whitespace using parameter expansion (xargs word-splits on spaces — #60)
+            ref_file="${ref_file#"${ref_file%%[![:space:]]*}"}"
+            ref_file="${ref_file%"${ref_file##*[![:space:]]}"}"
             [[ -z "$ref_file" ]] && continue
             local full_path="$worktree/$ref_file"
             if [[ -f "$full_path" ]]; then
@@ -90,7 +92,7 @@ generate_batch_context() {
     # 4. Git log (if budget allows)
     if [[ $(( chars_used + 500 )) -lt $TOKEN_BUDGET_CHARS ]]; then
         local git_log
-        git_log=$(cd "$worktree" && git log --oneline -5 2>/dev/null || true)
+        git_log=$(git -C "$worktree" log --oneline -5 2>/dev/null || true)
         if [[ -n "$git_log" ]]; then
             context+="### Recent Commits"$'\n'
             context+="$git_log"$'\n\n'
@@ -99,7 +101,10 @@ generate_batch_context() {
 
     chars_used=${#context}
 
-    # 5. Progress.txt (if budget allows — structured read for last 2 batches, fallback to tail)
+    # 5. Progress.txt (if budget allows — structured read for last 2 batches)
+    # NOTE: No tail fallback — injecting lines from an unknown batch contaminates
+    # context with wrong-batch data. If structured read returns empty, no progress
+    # exists for the requested batches (#54).
     if [[ $(( chars_used + 500 )) -lt $TOKEN_BUDGET_CHARS ]]; then
         local progress_file="$worktree/progress.txt"
         if [[ -f "$progress_file" ]]; then
@@ -110,16 +115,14 @@ generate_batch_context() {
                 [[ $pb_start -lt 1 ]] && pb_start=1
                 for ((pb = pb_start; pb < batch_num; pb++)); do
                     local pb_content
-                    pb_content=$(read_batch_progress "$worktree" "$pb")
+                    pb_content=$(read_batch_progress "$worktree" "$pb" 2>/dev/null || true)
                     if [[ -n "$pb_content" ]]; then
                         progress+="$pb_content"$'\n'
                     fi
                 done
             fi
-            # Fallback: if structured read returned nothing, use tail
-            if [[ -z "$progress" ]]; then
-                progress=$(tail -10 "$progress_file" 2>/dev/null || true)
-            fi
+            # No fallback to tail: structured read returning empty means no progress
+            # for the requested batches (not a failure condition).
             if [[ -n "$progress" ]]; then
                 context+="### Progress Notes"$'\n'
                 context+="$progress"$'\n\n'
@@ -149,16 +152,18 @@ record_failure_pattern() {
         "$patterns_file" 2>/dev/null || echo "0")
 
     if [[ "$existing" -gt 0 ]]; then
-        # Increment frequency
+        # Increment frequency — trap ensures temp file cleanup even if jq fails (#58)
         local tmp
         tmp=$(mktemp)
+        trap 'rm -f "$tmp"' RETURN
         jq --arg t "$title_lower" --arg f "$failure_type" \
             '[.[] | if .batch_title_pattern == $t and .failure_type == $f then .frequency += 1 else . end]' \
             "$patterns_file" > "$tmp" && mv "$tmp" "$patterns_file"
     else
-        # Add new pattern
+        # Add new pattern — trap ensures temp file cleanup even if jq fails (#58)
         local tmp
         tmp=$(mktemp)
+        trap 'rm -f "$tmp"' RETURN
         jq --arg t "$title_lower" --arg f "$failure_type" --arg w "$winning_fix" \
             '. += [{"batch_title_pattern": $t, "failure_type": $f, "frequency": 1, "winning_fix": $w}]' \
             "$patterns_file" > "$tmp" && mv "$tmp" "$patterns_file"

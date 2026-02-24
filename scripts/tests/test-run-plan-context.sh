@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
 source "$SCRIPT_DIR/../lib/run-plan-parser.sh"
+source "$SCRIPT_DIR/../lib/progress-writer.sh"
 source "$SCRIPT_DIR/../lib/run-plan-context.sh"
 
 FAILURES=0
@@ -48,7 +49,7 @@ assert_not_contains() {
 }
 
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap 'rm -rf "$WORK"' EXIT  # #59: ensure cleanup on any exit path, including early test failure
 
 # === Setup test fixtures ===
 
@@ -137,6 +138,42 @@ JSON
 
 ctx=$(generate_batch_context "$WORK/test-plan.md" 3 "$WORK")
 assert_contains "context: includes failure pattern warning" "missing import" "$ctx"
+
+# === No tail fallback: structured read returns empty, no wrong-batch data injected (#54) ===
+
+# Progress.txt with only batch 1 content (no batch 2)
+WORK_NOTAIL=$(mktemp -d)
+trap 'rm -rf "$WORK_NOTAIL"' EXIT
+cat > "$WORK_NOTAIL/test-plan.md" << 'PLAN_NOTAIL'
+## Batch 1: Alpha
+### Task 1: Do alpha
+Do something.
+
+## Batch 2: Beta
+### Task 2: Do beta
+Do more.
+PLAN_NOTAIL
+cat > "$WORK_NOTAIL/.run-plan-state.json" << 'JSON_NOTAIL'
+{"plan": "test-plan.md", "mode": "headless", "batches": {}}
+JSON_NOTAIL
+
+# Write unrelated content to progress.txt (no structured headers)
+echo "some unrelated content from a different run" > "$WORK_NOTAIL/progress.txt"
+echo "batch 99 leftovers here" >> "$WORK_NOTAIL/progress.txt"
+
+# generate_batch_context for batch 2: progress.txt exists but has no structured batch 1 data
+# Should NOT inject the tail content as "Progress Notes"
+cd "$WORK_NOTAIL" && git init -q && git commit --allow-empty -m "init" -q
+cd - > /dev/null
+ctx_notail=$(generate_batch_context "$WORK_NOTAIL/test-plan.md" 2 "$WORK_NOTAIL")
+assert_not_contains "no-tail-fallback: unrelated progress.txt content not injected" "batch 99 leftovers" "$ctx_notail"
+assert_not_contains "no-tail-fallback: tail content not injected as Progress Notes" "unrelated content from a different run" "$ctx_notail"
+
+# === git -C fix: git log works without cd (#61) ===
+
+# Verify the generate_batch_context produces git log output without needing cwd change
+ctx_gitlog=$(generate_batch_context "$WORK/test-plan.md" 3 "$WORK")
+assert_contains "git-C: recent commits appear in context" "Recent Commits" "$ctx_gitlog"
 
 # === Failure pattern recording ===
 

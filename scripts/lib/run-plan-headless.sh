@@ -182,6 +182,13 @@ run_mode_headless() {
             continue
         fi
 
+        # Write batch header to progress.txt at the start of each batch (#53)
+        # Non-fatal: progress tracking failure must not kill the run
+        if type write_batch_progress &>/dev/null; then
+            write_batch_progress "$WORKTREE" "$batch" "$title" || \
+                echo "WARNING: Failed to write batch progress header (non-fatal)" >&2
+        fi
+
         # Generate and inject per-batch context into CLAUDE.md
         # Guard all CLAUDE.md manipulation — failures here must not kill the run
         local batch_context="" _claude_md_existed=false _claude_md_backup=""
@@ -470,6 +477,20 @@ Focus on fixing the root cause. Check test output carefully."
                 if [[ -n "${batch_session_id:-}" ]]; then
                     record_batch_cost "$WORKTREE" "$batch" "$batch_session_id" || \
                         echo "WARNING: Failed to record batch cost (non-fatal)" >&2
+                fi
+
+                # Append State section to progress.txt after quality gate passes (#53)
+                # Records test count, duration, and cost for cross-context memory.
+                if type append_progress_section &>/dev/null; then
+                    {
+                        local _state_test_count
+                        _state_test_count=$(get_previous_test_count "$WORKTREE" 2>/dev/null || echo "0")
+                        local _state_cost=""
+                        _state_cost=$(jq -r ".costs[\"$batch\"].estimated_cost_usd // empty" "$WORKTREE/.run-plan-state.json" 2>/dev/null || true)
+                        local _state_content="- Tests: ${_state_test_count} passing"$'\n'"- Duration: ${duration}"
+                        [[ -n "$_state_cost" ]] && _state_content+=$'\n'"- Cost: \$${_state_cost}"
+                        append_progress_section "$WORKTREE" "State" "$_state_content"
+                    } || echo "WARNING: Failed to append progress State section (non-fatal)" >&2
                 fi
 
                 if [[ "$NOTIFY" == true ]]; then

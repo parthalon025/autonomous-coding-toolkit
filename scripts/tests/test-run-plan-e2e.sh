@@ -25,6 +25,7 @@ cat > "$WORK/.gitignore" <<'GITIGNORE'
 .run-plan-prefix.txt
 AGENTS.md
 logs/
+progress.txt
 GITIGNORE
 
 git -C "$WORK" add -A
