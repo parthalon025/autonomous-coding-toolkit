@@ -132,6 +132,20 @@ run_mode_headless() {
     local plan_name
     plan_name=$(basename "$PLAN_FILE" .md)
 
+    # Build the stable prefix ONCE before the batch loop and cache it to disk.
+    # The stable prefix contains plan identity, worktree path, python, branch, and TDD rules —
+    # none of which change between batches. prev_test_count is intentionally excluded because
+    # it increases after each batch; it lives in the variable suffix (#48).
+    #
+    # #45: Check that the write succeeded. A silent failure here would leave all subsequent
+    # batches with a missing/stale prefix file — fail fast instead.
+    local stable_prefix
+    stable_prefix=$(build_stable_prefix "$PLAN_FILE" "$WORKTREE" "$PYTHON" "$QUALITY_GATE_CMD")
+    echo "$stable_prefix" > "$WORKTREE/.run-plan-prefix.txt" || {
+        echo "ERROR: Failed to write prefix file $WORKTREE/.run-plan-prefix.txt" >&2
+        exit 1
+    }
+
     # Preserve user's --sample value before batch loop so per-batch reset doesn't clobber it (#16/#28)
     local SAMPLE_DEFAULT=${SAMPLE_COUNT:-0}
 
@@ -193,11 +207,16 @@ run_mode_headless() {
             } || echo "WARNING: Failed to inject batch context into CLAUDE.md (non-fatal)" >&2
         fi
 
+        # Fetch the current test count INSIDE the loop — it increases after each batch.
+        # Combine the cached stable prefix with the per-batch variable suffix so the
+        # prompt always reflects the actual current test count (#48).
         local prev_test_count
         prev_test_count=$(get_previous_test_count "$WORKTREE")
 
         local prompt
-        prompt=$(build_batch_prompt "$PLAN_FILE" "$batch" "$WORKTREE" "$PYTHON" "$QUALITY_GATE_CMD" "$prev_test_count")
+        prompt=$(printf '%s\n\n%s\n' \
+            "$(build_variable_suffix "$PLAN_FILE" "$batch" "$WORKTREE" "$prev_test_count")" \
+            "$stable_prefix")
 
         # Spec echo-back gate: verify agent understands the batch before executing
         if [[ "${SKIP_ECHO_BACK:-false}" != true ]]; then

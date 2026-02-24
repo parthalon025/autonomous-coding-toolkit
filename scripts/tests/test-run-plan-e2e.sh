@@ -119,6 +119,21 @@ fi
 assert "batch 1 log exists" "$([ -f "$WORK/logs/batch-1-attempt-1.log" ] && echo true || echo false)"
 assert "batch 2 log exists" "$([ -f "$WORK/logs/batch-2-attempt-1.log" ] && echo true || echo false)"
 
+# 5. Prefix file was created (#51)
+# The stable prefix is built once before the batch loop and cached to disk.
+# If this file is missing the per-batch prompt assembly would silently use an empty prefix.
+assert "prefix file exists" "$([ -f "$WORK/.run-plan-prefix.txt" ] && echo true || echo false)"
+
+# 6. Prefix file is non-empty and contains stable content
+if [[ -f "$WORK/.run-plan-prefix.txt" ]]; then
+    PREFIX_CONTENT=$(cat "$WORK/.run-plan-prefix.txt")
+    assert "prefix file contains TDD rule" "$(echo "$PREFIX_CONTENT" | grep -q "TDD" && echo true || echo false)"
+    assert "prefix file contains worktree path" "$(echo "$PREFIX_CONTENT" | grep -q "$WORK" && echo true || echo false)"
+else
+    assert "prefix file contains TDD rule (no file)" "false"
+    assert "prefix file contains worktree path (no file)" "false"
+fi
+
 # --- Summary ---
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

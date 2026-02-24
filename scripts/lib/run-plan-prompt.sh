@@ -4,41 +4,66 @@
 # Requires run-plan-parser.sh to be sourced first (provides get_batch_title, get_batch_text)
 #
 # Functions:
+#   build_stable_prefix <plan_file> <worktree> <python> <quality_gate_cmd>
+#     -> stable portion of the prompt (plan identity, worktree, python, branch, TDD rules)
+#     -> safe to cache across batches; does NOT include prev_test_count or other per-batch data
+#   build_variable_suffix <plan_file> <batch_num> <worktree> <prev_test_count>
+#     -> per-batch portion of the prompt (tasks, commits, progress, gate results, test count)
 #   build_batch_prompt <plan_file> <batch_num> <worktree> <python> <quality_gate_cmd> <prev_test_count>
-#     -> self-contained prompt string for claude -p
+#     -> full self-contained prompt (stable prefix + variable suffix) for claude -p
 #   generate_agents_md <plan_file> <worktree> <mode>
 #     -> writes AGENTS.md to worktree for agent team awareness
 
-# Build the stable portion of the prompt (identical across batches — enables API cache hits).
-# Args: <plan_file> <worktree> <python> <quality_gate_cmd> <prev_test_count>
+# build_stable_prefix — assemble the stable (batch-invariant) portion of a batch prompt.
+#
+# Stability contract: output depends only on plan_file path, worktree path, python path,
+# quality_gate_cmd, and the git branch name. None of these change between batches in a
+# normal run, so the result may be cached and reused across batches.
+#
+# NOTE: prev_test_count intentionally excluded — it changes each batch. It belongs in
+# build_variable_suffix (see issue #48).
+#
+# Args: <plan_file> <worktree> <python> <quality_gate_cmd>
 build_stable_prefix() {
     local plan_file="$1"
     local worktree="$2"
     local python="$3"
     local quality_gate_cmd="$4"
-    local prev_test_count="$5"
 
     local branch
-    branch=$(git -C "$worktree" branch --show-current 2>/dev/null || echo "unknown")
 
-    local prefix=""
-    prefix+="You are implementing batches from ${plan_file}."$'\n'
-    prefix+=""$'\n'
-    prefix+="Working directory: ${worktree}"$'\n'
-    prefix+="Python: ${python}"$'\n'
-    prefix+="Branch: ${branch}"$'\n'
-    prefix+=""$'\n'
-    prefix+="<requirements>"$'\n'
-    prefix+="- TDD: write test -> verify fail -> implement -> verify pass -> commit each task"$'\n'
-    prefix+="- After all tasks: run quality gate (${quality_gate_cmd})"$'\n'
-    prefix+="- Update progress.txt with batch summary and commit"$'\n'
-    prefix+="- All ${prev_test_count}+ tests must pass"$'\n'
-    prefix+="</requirements>"$'\n'
+    # #46: Check worktree exists before calling git. Log a warning if git fails so
+    # the caller knows the branch name is unreliable rather than silently caching "unknown".
+    if [[ ! -d "$worktree" ]]; then
+        echo "WARNING: worktree directory does not exist: $worktree" >&2
+        branch="unknown"
+    else
+        branch=$(git -C "$worktree" branch --show-current 2>/dev/null) || {
+            echo "WARNING: git branch failed for worktree: $worktree — using 'unknown'" >&2
+            branch="unknown"
+        }
+        # git can succeed but print nothing (detached HEAD)
+        [[ -z "$branch" ]] && branch="unknown"
+    fi
 
-    printf '%s' "$prefix"
+    cat <<PREFIX
+Working directory: ${worktree}
+Python: ${python}
+Branch: ${branch}
+
+Requirements:
+- TDD: write test -> verify fail -> implement -> verify pass -> commit each task
+- After all tasks: run quality gate (${quality_gate_cmd})
+- Update progress.txt with batch summary and commit
+PREFIX
 }
 
-# Build the variable portion of the prompt (changes each batch).
+# build_variable_suffix — assemble the per-batch (variable) portion of a batch prompt.
+#
+# Contains everything that can differ between batches: batch number, title, task text,
+# recent commits, progress tail, previous quality gate result, context refs, and the
+# current prev_test_count (which increases after each batch).
+#
 # Args: <plan_file> <batch_num> <worktree> <prev_test_count>
 build_variable_suffix() {
     local plan_file="$1"
@@ -46,25 +71,35 @@ build_variable_suffix() {
     local worktree="$3"
     local prev_test_count="$4"
 
-    local title batch_text
+    local title batch_text recent_commits progress_tail prev_gate
+
     title=$(get_batch_title "$plan_file" "$batch_num")
     batch_text=$(get_batch_text "$plan_file" "$batch_num")
-
-    local recent_commits progress_tail prev_gate
 
     # Cross-batch context: recent commits
     recent_commits=$(git -C "$worktree" log --oneline -5 2>/dev/null || echo "(no commits)")
 
     # Cross-batch context: progress.txt tail
+    # #50: File existence is already checked before calling tail.
+    # Remove 2>/dev/null || true — permission errors on a confirmed-existing file should
+    # propagate so the caller sees the real error rather than silently getting no progress.
     progress_tail=""
     if [[ -f "$worktree/progress.txt" ]]; then
-        progress_tail=$(tail -20 "$worktree/progress.txt" 2>/dev/null || true)
+        progress_tail=$(tail -20 "$worktree/progress.txt")
     fi
 
     # Cross-batch context: previous quality gate result
+    # #47: Distinguish "no state file / no key" (expected) from "corrupted JSON" (error).
+    # jq returns exit 5 on parse failure. Check exit code and warn on corruption so the
+    # caller knows prev_gate is empty due to an error, not just an absent first batch.
     prev_gate=""
     if [[ -f "$worktree/.run-plan-state.json" ]]; then
-        prev_gate=$(jq -r '.last_quality_gate // empty' "$worktree/.run-plan-state.json" 2>/dev/null || true)
+        local jq_exit=0
+        prev_gate=$(jq -r '.last_quality_gate // empty' "$worktree/.run-plan-state.json" 2>/dev/null) || jq_exit=$?
+        if [[ $jq_exit -ne 0 ]]; then
+            echo "WARNING: .run-plan-state.json is corrupted (jq exit $jq_exit) — proceeding without previous gate context" >&2
+            prev_gate=""
+        fi
     fi
 
     # Cross-batch context: referenced files from context_refs
@@ -83,61 +118,39 @@ $(head -100 "$worktree/$ref")
         done <<< "$refs"
     fi
 
-    # Cross-batch context: research warnings (from research JSON if present)
-    local research_warnings=""
-    # shellcheck disable=SC2086
-    for rj in "$worktree"/tasks/research-*.json; do
-        [[ -f "$rj" ]] || continue
-        local warnings
-        warnings=$(jq -r '.blocking_issues[]? // empty' "$rj" 2>/dev/null || true)
-        if [[ -n "$warnings" ]]; then
-            research_warnings+="$warnings"$'\n'
-        fi
-    done
+    cat <<SUFFIX
+You are implementing Batch ${batch_num}: ${title} from ${plan_file}.
 
-    local suffix=""
-    suffix+="Now implementing Batch ${batch_num}: ${title}"$'\n'
-    suffix+=""$'\n'
-    suffix+="<batch_tasks>"$'\n'
-    suffix+="${batch_text}"$'\n'
-    suffix+="</batch_tasks>"$'\n'
+Tasks in this batch:
+${batch_text}
 
-    suffix+=""$'\n'
-    suffix+="<prior_context>"$'\n'
-    suffix+="Recent commits:"$'\n'
-    suffix+="${recent_commits}"$'\n'
-    if [[ -n "$progress_tail" ]]; then
-        suffix+=""$'\n'
-        suffix+="<prior_progress>"$'\n'
-        suffix+="${progress_tail}"$'\n'
-        suffix+="</prior_progress>"$'\n'
-    fi
-    if [[ -n "$prev_gate" && "$prev_gate" != "null" ]]; then
-        suffix+=""$'\n'
-        suffix+="Previous quality gate: ${prev_gate}"$'\n'
-    fi
-    suffix+="</prior_context>"$'\n'
-
-    if [[ -n "$context_refs_content" ]]; then
-        suffix+=""$'\n'
-        suffix+="<referenced_files>"$'\n'
-        suffix+="${context_refs_content}"$'\n'
-        suffix+="</referenced_files>"$'\n'
-    fi
-
-    if [[ -n "$research_warnings" ]]; then
-        suffix+=""$'\n'
-        suffix+="<research_warnings>"$'\n'
-        suffix+="${research_warnings}"$'\n'
-        suffix+="</research_warnings>"$'\n'
-    fi
-
-    printf '%s' "$suffix"
+Recent commits:
+${recent_commits}
+$(if [[ -n "$progress_tail" ]]; then
+echo "
+Previous progress:
+${progress_tail}"
+fi)
+$(if [[ -n "$prev_gate" && "$prev_gate" != "null" ]]; then
+echo "
+Previous quality gate: ${prev_gate}"
+fi)
+$(if [[ -n "$context_refs_content" ]]; then
+echo "
+Referenced files from prior batches:
+${context_refs_content}"
+fi)
+- All ${prev_test_count}+ tests must pass
+SUFFIX
 }
 
-# Build complete batch prompt by composing stable prefix and variable suffix.
+# build_batch_prompt — full prompt for a single batch (stable prefix + variable suffix).
+#
+# Callers that run multiple batches should prefer calling build_stable_prefix once and
+# caching the result, then calling build_variable_suffix per batch — see run-plan-headless.sh.
+# This function is a convenience wrapper for single-batch callers and tests.
+#
 # Args: <plan_file> <batch_num> <worktree> <python> <quality_gate_cmd> <prev_test_count>
-# Backward compatible — same signature and output contract as before.
 build_batch_prompt() {
     local plan_file="$1"
     local batch_num="$2"
@@ -146,11 +159,11 @@ build_batch_prompt() {
     local quality_gate_cmd="$5"
     local prev_test_count="$6"
 
-    local prefix suffix
-    prefix=$(build_stable_prefix "$plan_file" "$worktree" "$python" "$quality_gate_cmd" "$prev_test_count")
-    suffix=$(build_variable_suffix "$plan_file" "$batch_num" "$worktree" "$prev_test_count")
+    local stable_prefix variable_suffix
+    stable_prefix=$(build_stable_prefix "$plan_file" "$worktree" "$python" "$quality_gate_cmd")
+    variable_suffix=$(build_variable_suffix "$plan_file" "$batch_num" "$worktree" "$prev_test_count")
 
-    printf '%s\n%s' "$prefix" "$suffix"
+    printf '%s\n\n%s\n' "$variable_suffix" "$stable_prefix"
 }
 
 # Generate AGENTS.md in the worktree for agent team awareness.

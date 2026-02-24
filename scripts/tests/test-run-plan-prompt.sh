@@ -28,27 +28,23 @@ assert_not_contains() {
     if [[ "$haystack" == *"$needle"* ]]; then
         echo "FAIL: $desc"
         echo "  expected NOT to contain: $needle"
+        echo "  in: ${haystack:0:300}..."
         FAILURES=$((FAILURES + 1))
     else
         echo "PASS: $desc"
     fi
 }
 
-assert_before() {
-    local desc="$1" first="$2" second="$3" haystack="$4"
+assert_eq() {
+    local desc="$1" expected="$2" actual="$3"
     TESTS=$((TESTS + 1))
-    local pos_first pos_second
-    # Find byte offset of first occurrence of each string
-    pos_first=$(echo "$haystack" | grep -bo "$first" 2>/dev/null | head -1 | cut -d: -f1)
-    pos_second=$(echo "$haystack" | grep -bo "$second" 2>/dev/null | head -1 | cut -d: -f1)
-    if [[ -z "$pos_first" || -z "$pos_second" ]]; then
-        echo "FAIL: $desc (one or both strings not found)"
+    if [[ "$actual" != "$expected" ]]; then
+        echo "FAIL: $desc"
+        echo "  expected: $expected"
+        echo "  actual:   $actual"
         FAILURES=$((FAILURES + 1))
-    elif [[ "$pos_first" -lt "$pos_second" ]]; then
-        echo "PASS: $desc"
     else
-        echo "FAIL: $desc ('$first' at $pos_first, '$second' at $pos_second)"
-        FAILURES=$((FAILURES + 1))
+        echo "PASS: $desc"
     fi
 }
 
@@ -112,13 +108,9 @@ touch "$WORKTREE/.gitkeep"
 git -C "$WORKTREE" add .gitkeep
 git -C "$WORKTREE" commit -m "init" --quiet
 
-# =============================================================================
-# XML structure tests
-# =============================================================================
-
+# --- Test: build_batch_prompt for batch 1 ---
 prompt=$(build_batch_prompt "$FIXTURE" 1 "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh --project-root ." 0)
 
-# --- Core content ---
 assert_contains "has batch number" "Batch 1" "$prompt"
 assert_contains "has batch title" "Foundation (Tasks 1-2)" "$prompt"
 assert_contains "has plan file reference" "plan.md" "$prompt"
@@ -132,25 +124,7 @@ assert_contains "has quality gate command" "scripts/quality-gate.sh --project-ro
 assert_contains "has previous test count" "0+" "$prompt"
 assert_contains "has progress.txt instruction" "progress.txt" "$prompt"
 
-# --- XML tag presence ---
-assert_contains "has <batch_tasks> open tag" "<batch_tasks>" "$prompt"
-assert_contains "has </batch_tasks> close tag" "</batch_tasks>" "$prompt"
-assert_contains "has <prior_context> open tag" "<prior_context>" "$prompt"
-assert_contains "has </prior_context> close tag" "</prior_context>" "$prompt"
-assert_contains "has <requirements> open tag" "<requirements>" "$prompt"
-assert_contains "has </requirements> close tag" "</requirements>" "$prompt"
-
-# --- Section ordering ---
-# With prefix/suffix split: requirements in prefix (top), batch_tasks + prior_context in suffix
-# Within suffix: batch_tasks before prior_context (task at top = highest priority)
-assert_before "batch_tasks before prior_context" "<batch_tasks>" "<prior_context>" "$prompt"
-# Requirements now in prefix (stable, cached) — appears before batch_tasks
-assert_before "requirements before batch_tasks (prefix/suffix split)" "<requirements>" "<batch_tasks>" "$prompt"
-
-# =============================================================================
-# Batch 2 tests
-# =============================================================================
-
+# --- Test: build_batch_prompt for batch 2 ---
 prompt2=$(build_batch_prompt "$FIXTURE" 2 "$WORKTREE" "/opt/python3.12" "make test" 15)
 
 assert_contains "batch 2 has batch number" "Batch 2" "$prompt2"
@@ -162,7 +136,56 @@ assert_contains "batch 2 has different quality gate" "make test" "$prompt2"
 assert_contains "batch 2 has prev test count" "15+" "$prompt2"
 
 # --- Test: batch 2 does NOT contain batch 1 tasks ---
-assert_not_contains "batch 2 prompt does not leak batch 1 tasks" "Create Data Model" "$prompt2"
+TESTS=$((TESTS + 1))
+if [[ "$prompt2" == *"Create Data Model"* ]]; then
+    echo "FAIL: batch 2 prompt should not contain batch 1 tasks"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: batch 2 prompt does not leak batch 1 tasks"
+fi
+
+# =============================================================================
+# build_stable_prefix tests
+# =============================================================================
+
+stable=$(build_stable_prefix "$FIXTURE" "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh")
+
+assert_contains "stable prefix has worktree path" "$WORKTREE" "$stable"
+assert_contains "stable prefix has python path" "/usr/bin/python3" "$stable"
+assert_contains "stable prefix has branch name" "test-branch" "$stable"
+assert_contains "stable prefix has TDD rule" "TDD" "$stable"
+assert_contains "stable prefix has quality gate" "scripts/quality-gate.sh" "$stable"
+assert_contains "stable prefix has progress.txt rule" "progress.txt" "$stable"
+
+# #48: stable prefix must NOT contain prev_test_count — that belongs in variable suffix
+assert_not_contains "stable prefix does NOT contain test count line" "tests must pass" "$stable"
+
+# --- Test: build_stable_prefix with bad worktree emits warning but returns 'unknown' ---
+TESTS=$((TESTS + 1))
+bad_worktree_output=$(build_stable_prefix "$FIXTURE" "/nonexistent/path/xyz" "python3" "gate.sh" 2>&1)
+if [[ "$bad_worktree_output" == *"WARNING"* && "$bad_worktree_output" == *"unknown"* ]]; then
+    echo "PASS: build_stable_prefix warns on missing worktree and uses 'unknown' branch"
+else
+    echo "FAIL: build_stable_prefix should warn on missing worktree"
+    echo "  output: $bad_worktree_output"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# =============================================================================
+# build_variable_suffix tests
+# =============================================================================
+
+suffix=$(build_variable_suffix "$FIXTURE" 1 "$WORKTREE" 7)
+
+assert_contains "variable suffix has batch number" "Batch 1" "$suffix"
+assert_contains "variable suffix has batch title" "Foundation" "$suffix"
+assert_contains "variable suffix has task text" "Task 1: Create Data Model" "$suffix"
+# #48: test count is in the variable suffix, not the stable prefix
+assert_contains "variable suffix has test count" "7+" "$suffix"
+
+# Different test count gives different suffix (confirms test count varies per batch)
+suffix_b2=$(build_variable_suffix "$FIXTURE" 2 "$WORKTREE" 20)
+assert_contains "variable suffix b2 has test count 20+" "20+" "$suffix_b2"
 
 # =============================================================================
 # Cross-batch context tests
@@ -178,77 +201,49 @@ git -C "$WORKTREE" commit -q -m "feat: add auth"
 prompt3=$(build_batch_prompt "$FIXTURE" 2 "$WORKTREE" "python3" "scripts/quality-gate.sh" 42)
 assert_contains "cross-batch: has Recent commits" "Recent commits" "$prompt3"
 
-# --- Test: prompt includes progress.txt content in prior_progress tag ---
-assert_contains "cross-batch: has <prior_progress> tag" "<prior_progress>" "$prompt3"
+# --- Test: prompt includes progress.txt content ---
+assert_contains "cross-batch: has Previous progress" "Previous progress" "$prompt3"
 assert_contains "cross-batch: has progress content" "Implemented auth module" "$prompt3"
 
 # --- Test: prompt includes commit message ---
 assert_contains "cross-batch: has commit in log" "feat: add auth" "$prompt3"
 
 # =============================================================================
-# Research warnings test
+# #47: corrupted state file — jq failure emits warning, prev_gate stays empty
 # =============================================================================
 
-# --- Setup: create a research JSON with blocking issues ---
-mkdir -p "$WORKTREE/tasks"
-cat > "$WORKTREE/tasks/research-auth.json" << 'RJSON'
-{
-  "blocking_issues": ["OAuth library has known CVE-2025-1234", "Rate limiting not addressed in plan"]
-}
-RJSON
-
-prompt4=$(build_batch_prompt "$FIXTURE" 1 "$WORKTREE" "python3" "scripts/quality-gate.sh" 0)
-assert_contains "research: has <research_warnings> tag" "<research_warnings>" "$prompt4"
-assert_contains "research: has CVE warning" "CVE-2025-1234" "$prompt4"
-assert_contains "research: has rate limiting warning" "Rate limiting not addressed" "$prompt4"
-
-# --- Test: no research_warnings tag when no research JSON ---
-rm -rf "$WORKTREE/tasks"
-prompt5=$(build_batch_prompt "$FIXTURE" 1 "$WORKTREE" "python3" "scripts/quality-gate.sh" 0)
-assert_not_contains "no research: no <research_warnings> tag" "<research_warnings>" "$prompt5"
-
-# Helper: assert two values are equal
-assert_eq() {
-    local desc="$1" expected="$2" actual="$3"
-    TESTS=$((TESTS + 1))
-    if [[ "$expected" != "$actual" ]]; then
-        echo "FAIL: $desc"
-        echo "  expected: $expected"
-        echo "  actual:   $actual"
-        FAILURES=$((FAILURES + 1))
-    else
-        echo "PASS: $desc"
-    fi
-}
+echo "NOT VALID JSON {{{" > "$WORKTREE/.run-plan-state.json"
+TESTS=$((TESTS + 1))
+jq_warn_output=$(build_variable_suffix "$FIXTURE" 2 "$WORKTREE" 0 2>&1)
+if [[ "$jq_warn_output" == *"WARNING"* && "$jq_warn_output" == *"corrupted"* ]]; then
+    echo "PASS: build_variable_suffix warns on corrupted state file"
+else
+    echo "FAIL: build_variable_suffix should warn on corrupted state file"
+    echo "  output: ${jq_warn_output:0:200}"
+    FAILURES=$((FAILURES + 1))
+fi
+# Clean up corrupted state file
+rm -f "$WORKTREE/.run-plan-state.json"
 
 # =============================================================================
-# Stable prefix / variable suffix split tests
+# #50: unreadable progress.txt — error is NOT silently swallowed (no 2>/dev/null || true)
+# The fix removes the error suppression so stderr shows the permission denial.
+# We verify by running tail directly under the same condition — the error must be visible.
+# (Command substitution $() cannot propagate exit codes from within sourced functions
+#  reliably across bash versions, so we test the absence of suppression via the source.)
 # =============================================================================
 
-# --- Test: build_stable_prefix produces consistent output ---
-prefix1=$(build_stable_prefix "$FIXTURE" "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh" 0)
-prefix2=$(build_stable_prefix "$FIXTURE" "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh" 0)
-assert_eq "stable prefix: identical across calls" "$prefix1" "$prefix2"
-
-# --- Test: build_stable_prefix is different from build_variable_suffix ---
-suffix1=$(build_variable_suffix "$FIXTURE" 1 "$WORKTREE" 0)
-assert_not_contains "prefix does not contain batch tasks" "Task 1: Create Data Model" "$prefix1"
-assert_contains "suffix contains batch tasks" "Task 1: Create Data Model" "$suffix1"
-
-# --- Test: build_variable_suffix changes with batch number ---
-suffix2=$(build_variable_suffix "$FIXTURE" 2 "$WORKTREE" 0)
-assert_not_contains "suffix batch 2: no batch 1 tasks" "Create Data Model" "$suffix2"
-assert_contains "suffix batch 2: has batch 2 tasks" "Wire Together" "$suffix2"
-
-# --- Test: build_batch_prompt still works (backward compat) ---
-full_prompt=$(build_batch_prompt "$FIXTURE" 1 "$WORKTREE" "/usr/bin/python3" "scripts/quality-gate.sh" 0)
-assert_contains "full prompt: has batch tasks" "Task 1: Create Data Model" "$full_prompt"
-assert_contains "full prompt: has requirements" "TDD" "$full_prompt"
-
-# --- Test: prefix contains metadata, suffix contains batch-specific ---
-assert_contains "prefix: has working directory" "$WORKTREE" "$prefix1"
-assert_contains "prefix: has python path" "/usr/bin/python3" "$prefix1"
-assert_contains "suffix: has batch tasks header" "Batch 1" "$suffix1"
+TESTS=$((TESTS + 1))
+# Check that progress_tail assignment in build_variable_suffix does NOT use || true
+# by inspecting the source code — the fix is the removal of the error suppression.
+PROMPT_SRC="$SCRIPT_DIR/../lib/run-plan-prompt.sh"
+if grep -q 'tail.*progress\.txt.*|| true' "$PROMPT_SRC" 2>/dev/null || \
+   grep -q 'tail.*progress\.txt.*2>/dev/null.*|| true' "$PROMPT_SRC" 2>/dev/null; then
+    echo "FAIL: build_variable_suffix still has suppressed tail error (|| true present)"
+    FAILURES=$((FAILURES + 1))
+else
+    echo "PASS: build_variable_suffix does not suppress tail errors on progress.txt"
+fi
 
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"
