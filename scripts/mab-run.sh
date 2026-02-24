@@ -226,10 +226,16 @@ run_agents_parallel() {
         > "$log_b" 2>&1) &
     local pid_b=$!
 
+    # Kill children on interrupt, clean up worktrees
+    trap 'kill "$pid_a" "$pid_b" 2>/dev/null; wait "$pid_a" "$pid_b" 2>/dev/null; echo "MAB agents interrupted" >&2' INT TERM
+
     # Wait for both
     local exit_a=0 exit_b=0
     wait $pid_a || exit_a=$?
     wait $pid_b || exit_b=$?
+
+    # Clear the interrupt trap
+    trap - INT TERM
 
     echo "  Agent A exited: $exit_a | Agent B exited: $exit_b"
     echo "$exit_a $exit_b"
