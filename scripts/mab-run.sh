@@ -251,8 +251,8 @@ invoke_judge() {
     judge_template=$(cat "$SCRIPT_DIR/prompts/judge-agent.md")
 
     local diff_a diff_b gate_a_text gate_b_text
-    diff_a=$(cd "$wt_a" && git diff HEAD 2>/dev/null | head -500 || echo "(no diff)")
-    diff_b=$(cd "$wt_b" && git diff HEAD 2>/dev/null | head -500 || echo "(no diff)")
+    diff_a=$(cd "$wt_a" && git diff HEAD 2>/dev/null | head -500) || diff_a="(no diff)"
+    diff_b=$(cd "$wt_b" && git diff HEAD 2>/dev/null | head -500) || diff_b="(no diff)"
     gate_a_text=$(cat "$gate_a_log" 2>/dev/null | tail -50 || echo "(no gate output)")
     gate_b_text=$(cat "$gate_b_log" 2>/dev/null | tail -50 || echo "(no gate output)")
 
@@ -270,10 +270,14 @@ invoke_judge() {
     judge_prompt="${judge_prompt//\{DESIGN_DOC\}/$design_doc}"
 
     local judge_output
+    local judge_exit=0
     judge_output=$(CLAUDECODE='' claude -p "$judge_prompt" \
         --allowedTools "" \
         --permission-mode bypassPermissions \
-        2>"$MAB_WORKTREE/logs/mab-judge-stderr.log") || true
+        2>"$MAB_WORKTREE/logs/mab-judge-stderr.log") || judge_exit=$?
+    if [[ $judge_exit -ne 0 ]]; then
+        echo "WARNING: judge failed (exit $judge_exit), defaulting to tie" >&2
+    fi
 
     echo "$judge_output" > "$MAB_WORKTREE/logs/mab-judge-output.log"
 
@@ -346,7 +350,7 @@ merge_winner() {
     fi
 
     # Commit winner's changes in their worktree
-    (cd "$winner_wt" && git add -A && git commit -m "mab: $winner batch $MAB_BATCH — $MAB_WORK_UNIT" --allow-empty 2>/dev/null) || true
+    (cd "$winner_wt" && git add -u && git commit -m "mab: $winner batch $MAB_BATCH — $MAB_WORK_UNIT" --allow-empty 2>/dev/null) || true
 
     # Cherry-pick into base worktree
     local winner_commit
@@ -360,7 +364,7 @@ merge_winner() {
             mkdir -p "$MAB_WORKTREE/$(dirname "$f")"
             cp "$winner_wt/$f" "$MAB_WORKTREE/$f" 2>/dev/null || true
         done)
-        (cd "$MAB_WORKTREE" && git add -A && git commit -m "mab: $winner batch $MAB_BATCH (manual merge)" --allow-empty 2>/dev/null) || true
+        (cd "$MAB_WORKTREE" && git add -u && git commit -m "mab: $winner batch $MAB_BATCH (manual merge)" --allow-empty 2>/dev/null) || true
     }
 }
 
@@ -491,9 +495,10 @@ run_mab() {
     # Run quality gates
     echo ""
     echo "--- Quality gates ---"
-    local gate_a=0 gate_b=0
-    run_gate_on_agent "$wt_a" "agent-a" || gate_a=$?
-    run_gate_on_agent "$wt_b" "agent-b" || gate_b=$?
+    # Capture gate exit codes without disabling set -e inside functions (SC2310)
+    local gate_a gate_b
+    set +e; run_gate_on_agent "$wt_a" "agent-a"; gate_a=$?; set -e
+    set +e; run_gate_on_agent "$wt_b" "agent-b"; gate_b=$?; set -e
 
     # Invoke judge (only if both agents ran)
     echo ""
