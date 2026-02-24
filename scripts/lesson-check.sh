@@ -5,13 +5,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LESSONS_DIR="$SCRIPT_DIR/../docs/lessons"
+LESSONS_DIR="${LESSONS_DIR:-$SCRIPT_DIR/../docs/lessons}"
 
 # ---------------------------------------------------------------------------
 # parse_lesson <file>
-# shellcheck disable=SC2034  # lesson_severity parsed for future severity filtering
+# shellcheck disable=SC2034  # lesson_severity, lesson_scope parsed for future filtering
 # Sets: lesson_id, lesson_title, lesson_severity, pattern_type, pattern_regex,
-#       lesson_languages (space-separated list)
+#       lesson_languages (space-separated list), lesson_scope (space-separated tags)
 # Returns 1 if the lesson cannot be parsed or has no syntactic pattern.
 # ---------------------------------------------------------------------------
 parse_lesson() {
@@ -22,6 +22,7 @@ parse_lesson() {
     pattern_type=""
     pattern_regex=""
     lesson_languages=""
+    lesson_scope=""
 
     # Parse YAML frontmatter with sed + read (no eval — safe with special chars).
     # Extract text between first two --- delimiters, then parse key: value lines.
@@ -55,6 +56,12 @@ parse_lesson() {
                 lesson_languages="${lesson_languages//,/ }"
                 lesson_languages="${lesson_languages## }"
                 lesson_languages="${lesson_languages%% }"
+            elif [[ "$line" =~ ^scope:[[:space:]]+(.*) ]]; then
+                lesson_scope="${BASH_REMATCH[1]}"
+                lesson_scope="${lesson_scope//[\[\]]/}"
+                lesson_scope="${lesson_scope//,/ }"
+                lesson_scope="${lesson_scope## }"
+                lesson_scope="${lesson_scope%% }"
             fi
         else
             # Nested pattern: fields (indented)
@@ -75,6 +82,9 @@ parse_lesson() {
 
     [[ -z "$pattern_type" || "$pattern_type" != "syntactic" ]] && return 1
     [[ -z "$pattern_regex" ]] && return 1
+
+    # Default scope to universal when omitted (backward compatible)
+    [[ -z "$lesson_scope" ]] && lesson_scope="universal"
 
     # Convert PCRE shorthand classes to POSIX ERE equivalents for grep -E portability.
     # This lets lesson authors use \s, \d, \w, \b in regex: fields while keeping
@@ -98,15 +108,22 @@ build_help() {
         if parse_lesson "$lfile"; then
             local lang_display="$lesson_languages"
             [[ "$lang_display" == "all" ]] && lang_display="all files"
-            checks_text+="  [lesson-${lesson_id}]  ${lesson_title} (${lang_display})"$'\n'
+            local scope_display="$lesson_scope"
+            checks_text+="  [lesson-${lesson_id}]  ${lesson_title} (${lang_display}) [scope: ${scope_display}]"$'\n'
         fi
     done
 
     cat <<USAGE
-Usage: lesson-check.sh [file ...]
+Usage: lesson-check.sh [OPTIONS] [file ...]
   Check files for known anti-patterns from lessons learned.
   Files can be passed as arguments or piped via stdin (one per line).
   If neither, defaults to git diff --name-only in current directory.
+
+Options:
+  --help, -h       Show this help
+  --all-scopes     Bypass scope filtering (check all lessons regardless of project)
+  --show-scope     Display detected project scope and exit
+  --scope <tags>   Override project scope (comma-separated, e.g. "language:python,domain:ha-aria")
 
 Checks (syntactic only — loaded from ${LESSONS_DIR}):
 ${checks_text}
@@ -115,8 +132,140 @@ Exit:   0 if clean, 1 if violations found
 USAGE
 }
 
-if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    build_help
+# ---------------------------------------------------------------------------
+# detect_project_scope [claude_md_path]
+# Reads ## Scope Tags from CLAUDE.md. Falls back to detect_project_type().
+# Sets global: project_scope (space-separated tags)
+# ---------------------------------------------------------------------------
+detect_project_scope() {
+    local claude_md="${1:-}"
+    project_scope=""
+
+    # Try explicit path first, then search current directory upward
+    if [[ -z "$claude_md" ]]; then
+        claude_md="CLAUDE.md"
+        # Walk up to find CLAUDE.md (max 5 levels)
+        local search_dir="$PWD"
+        for _ in 1 2 3 4 5; do
+            if [[ -f "$search_dir/CLAUDE.md" ]]; then
+                claude_md="$search_dir/CLAUDE.md"
+                break
+            fi
+            search_dir="$(dirname "$search_dir")"
+        done
+    fi
+
+    # Parse ## Scope Tags section from CLAUDE.md
+    if [[ -f "$claude_md" ]]; then
+        local in_scope_section=false
+        local line
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^##[[:space:]]+Scope[[:space:]]+Tags ]]; then
+                in_scope_section=true
+                continue
+            fi
+            if [[ "$in_scope_section" == true ]]; then
+                # Stop at next heading
+                if [[ "$line" =~ ^## ]]; then
+                    break
+                fi
+                # Skip empty lines
+                [[ -z "${line// /}" ]] && continue
+                # Parse comma-separated tags
+                local tag
+                for tag in ${line//,/ }; do
+                    tag="${tag## }"
+                    tag="${tag%% }"
+                    [[ -n "$tag" ]] && project_scope+="$tag "
+                done
+            fi
+        done < "$claude_md"
+        project_scope="${project_scope%% }"
+    fi
+
+    # Fallback: detect project type → language tag
+    if [[ -z "$project_scope" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh" 2>/dev/null || true
+        if type detect_project_type &>/dev/null; then
+            local ptype
+            ptype=$(detect_project_type "$PWD")
+            case "$ptype" in
+                python)  project_scope="language:python" ;;
+                node)    project_scope="language:javascript" ;;
+                bash)    project_scope="language:bash" ;;
+                *)       project_scope="" ;;
+            esac
+        fi
+    fi
+
+    # If still empty, everything matches (universal behavior)
+}
+
+# ---------------------------------------------------------------------------
+# scope_matches <lesson_scope> <project_scope>
+# Returns 0 if lesson should run on this project, 1 if it should be skipped.
+# A lesson matches if ANY of its scope tags intersects the project's scope set,
+# or if the lesson scope includes "universal".
+# ---------------------------------------------------------------------------
+scope_matches() {
+    local l_scope="$1"    # space-separated lesson scope tags
+    local p_scope="$2"    # space-separated project scope tags
+
+    # universal matches everything
+    local tag
+    for tag in $l_scope; do
+        [[ "$tag" == "universal" ]] && return 0
+    done
+
+    # If project has no scope, everything matches (backward compat)
+    [[ -z "$p_scope" ]] && return 0
+
+    # Check intersection
+    local ltag ptag
+    for ltag in $l_scope; do
+        for ptag in $p_scope; do
+            [[ "$ltag" == "$ptag" ]] && return 0
+        done
+    done
+
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# CLI flag parsing
+# ---------------------------------------------------------------------------
+ALL_SCOPES=false
+SHOW_SCOPE=false
+SCOPE_OVERRIDE=""
+
+# Parse flags before file arguments
+args=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h) build_help; exit 0 ;;
+        --all-scopes) ALL_SCOPES=true; shift ;;
+        --show-scope) SHOW_SCOPE=true; shift ;;
+        --scope)
+            [[ -z "${2:-}" ]] && { echo "lesson-check: --scope requires an argument" >&2; exit 1; }
+            SCOPE_OVERRIDE="$2"; shift 2 ;;
+        *) args+=("$1"); shift ;;
+    esac
+done
+set -- "${args[@]+"${args[@]}"}"
+
+# Handle --show-scope early (no files needed)
+if [[ "$SHOW_SCOPE" == true ]]; then
+    project_scope=""
+    if [[ -n "$SCOPE_OVERRIDE" ]]; then
+        project_scope="${SCOPE_OVERRIDE//,/ }"
+    else
+        detect_project_scope "${PROJECT_CLAUDE_MD:-}"
+    fi
+    if [[ -n "$project_scope" ]]; then
+        echo "Detected project scope: $project_scope"
+    else
+        echo "No project scope detected (all lessons will apply)"
+    fi
     exit 0
 fi
 
@@ -160,6 +309,18 @@ if [[ ${#existing_files[@]} -eq 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Detect project scope (unless --all-scopes)
+# ---------------------------------------------------------------------------
+project_scope=""
+if [[ "$ALL_SCOPES" == false ]]; then
+    if [[ -n "$SCOPE_OVERRIDE" ]]; then
+        project_scope="${SCOPE_OVERRIDE//,/ }"
+    else
+        detect_project_scope "${PROJECT_CLAUDE_MD:-}"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Language → file extension mapping
 # ---------------------------------------------------------------------------
 # Returns 1 (mismatch) if the file doesn't match the lesson's languages.
@@ -189,6 +350,11 @@ lfile=""
 for lfile in "$LESSONS_DIR"/[0-9]*.md; do
     [[ -f "$lfile" ]] || continue
     parse_lesson "$lfile" || continue
+
+    # Scope filtering: skip lessons that don't match this project
+    if [[ "$ALL_SCOPES" == false ]]; then
+        scope_matches "$lesson_scope" "$project_scope" || continue
+    fi
 
     # Build list of target files that match this lesson's languages
     target_files=()
