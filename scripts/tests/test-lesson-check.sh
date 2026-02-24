@@ -32,7 +32,8 @@ except:
     pass
 PY
 
-output=$(bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
+# PROJECT_CLAUDE_MD=/dev/null isolates from toolkit's scope tags (language:bash would filter out python lessons)
+output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     pass "Detects bare except in Python file (lesson 1, \\s ERE conversion)"
 else
@@ -47,7 +48,7 @@ except ValueError:
     pass
 PY
 
-output=$(bash "$LESSON_CHECK" "$WORK/good.py" 2>&1 || true)
+output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/good.py" 2>&1 || true)
 if echo "$output" | grep -q 'clean'; then
     pass "Clean file reports clean"
 else
@@ -59,7 +60,7 @@ cat > "$WORK/bad_ip.js" <<'JS'
 const url = "http://192.168.1.1/api";
 JS
 
-output=$(bash "$LESSON_CHECK" "$WORK/bad_ip.js" 2>&1 || true)
+output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad_ip.js" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-28\]'; then
     pass "PCRE \\d converted to ERE [0-9] detects hardcoded IPs"
 else
@@ -71,7 +72,7 @@ cat > "$WORK/not_python.sh" <<'SH'
 except:
 SH
 
-output=$(bash "$LESSON_CHECK" "$WORK/not_python.sh" 2>&1 || true)
+output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/not_python.sh" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     fail "Python-only lesson 1 should not match .sh files"
 else

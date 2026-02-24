@@ -197,6 +197,9 @@ Three mechanisms prevent data loss across context resets:
 4. **State survives interruption** — every state transition persisted to disk
 5. **Lessons compound** — every bug becomes an automated check over time
 
+## Scope Tags
+language:bash, project:autonomous-coding-toolkit
+
 ## Conventions
 
 - Plans go in `docs/plans/` with format `YYYY-MM-DD-description.md`
