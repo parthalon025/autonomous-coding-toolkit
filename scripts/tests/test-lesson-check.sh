@@ -33,7 +33,8 @@ except:
 PY
 
 # PROJECT_CLAUDE_MD=/dev/null isolates from toolkit's scope tags (language:bash would filter out python lessons)
-output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
+# cd into $WORK so detect_project_type doesn't find toolkit's package.json and infer language:javascript
+output=$(cd "$WORK" && PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     pass "Detects bare except in Python file (lesson 1, \\s ERE conversion)"
 else
@@ -207,7 +208,8 @@ fi
 # --- Test 11: Lesson without scope defaults to universal (backward compat) ---
 # Use the real lesson 1 (no scope field) — should still work as before
 # Isolate from repo's own CLAUDE.md by pointing PROJECT_CLAUDE_MD to /dev/null
-output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
+# cd into $WORK so detect_project_type doesn't find toolkit's package.json
+output=$(cd "$WORK" && PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     pass "Lesson without scope: field defaults to universal (backward compatible)"
 else
