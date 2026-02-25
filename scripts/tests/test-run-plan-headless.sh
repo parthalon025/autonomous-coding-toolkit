@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RP="$SCRIPT_DIR/../run-plan.sh"
 RPH="$SCRIPT_DIR/../lib/run-plan-headless.sh"
+RPEB="$SCRIPT_DIR/../lib/run-plan-echo-back.sh"
 
 FAILURES=0
 TESTS=0
@@ -234,16 +235,16 @@ fi
 
 # _echo_back_check function must exist in headless file
 TESTS=$((TESTS + 1))
-if grep -q '_echo_back_check()' "$RPH"; then
-    echo "PASS: _echo_back_check() is defined in run-plan-headless.sh"
+if grep -q '_echo_back_check()' "$RPEB"; then
+    echo "PASS: _echo_back_check() is defined in run-plan-echo-back.sh"
 else
-    echo "FAIL: _echo_back_check() should be defined in run-plan-headless.sh (bug #30)"
+    echo "FAIL: _echo_back_check() should be defined in run-plan-echo-back.sh (bug #30)"
     FAILURES=$((FAILURES + 1))
 fi
 
 # Echo-back gate must be non-blocking by default (no early return when STRICT_ECHO_BACK not set)
 TESTS=$((TESTS + 1))
-if grep -q 'STRICT_ECHO_BACK' "$RPH"; then
+if grep -q 'STRICT_ECHO_BACK' "$RPEB"; then
     echo "PASS: STRICT_ECHO_BACK controls blocking behavior in echo-back gate"
 else
     echo "FAIL: echo-back gate should check STRICT_ECHO_BACK for blocking mode (bug #30)"
@@ -252,17 +253,17 @@ fi
 
 # echo-back gate is documented as non-blocking by default
 TESTS=$((TESTS + 1))
-if grep -q 'NON-BLOCKING' "$RPH"; then
-    echo "PASS: echo-back gate documents NON-BLOCKING default behavior"
+if grep -q 'NON-BLOCKING' "$RPEB"; then
+    echo "PASS: run-plan-echo-back.sh documents NON-BLOCKING default behavior"
 else
-    echo "FAIL: echo-back gate should document NON-BLOCKING default (bug #30)"
+    echo "FAIL: run-plan-echo-back.sh should document NON-BLOCKING default (bug #30)"
     FAILURES=$((FAILURES + 1))
 fi
 
 # _echo_back_check: SKIP_ECHO_BACK=true must cause early return without error
 TESTS=$((TESTS + 1))
 (
-    source "$RPH" 2>/dev/null || true
+    source "$RPEB" 2>/dev/null || true
     SKIP_ECHO_BACK=true
     STRICT_ECHO_BACK=false
     _echo_back_check "some batch text here" "/nonexistent/log" 2>/dev/null
@@ -275,7 +276,7 @@ TESTS=$((TESTS + 1))
 # _echo_back_check: missing log file does not crash
 TESTS=$((TESTS + 1))
 (
-    source "$RPH" 2>/dev/null || true
+    source "$RPEB" 2>/dev/null || true
     SKIP_ECHO_BACK=false
     STRICT_ECHO_BACK=false
     _echo_back_check "some batch text here" "/nonexistent/log" 2>/dev/null
@@ -290,7 +291,7 @@ TESTS=$((TESTS + 1))
 tmplog=$(mktemp)
 echo "some agent output here" > "$tmplog"
 (
-    source "$RPH" 2>/dev/null || true
+    source "$RPEB" 2>/dev/null || true
     SKIP_ECHO_BACK=false
     STRICT_ECHO_BACK=false
     _echo_back_check "" "$tmplog" 2>/dev/null

@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/run-plan-parser.sh"
-source "$SCRIPT_DIR/../lib/run-plan-headless.sh" 2>/dev/null || true
+source "$SCRIPT_DIR/../lib/run-plan-echo-back.sh" 2>/dev/null || true
 
 # Source just the echo_back_check function if full sourcing fails
 # (run-plan-headless.sh references globals that may not be set)
