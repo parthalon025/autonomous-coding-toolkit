@@ -11,7 +11,11 @@ LESSONS_DIR="${LESSONS_DIR:-$SCRIPT_DIR/../docs/lessons}"
 # Set PROJECT_ROOT to the project being checked for project-specific anti-patterns.
 PROJECT_LESSONS_DIR=""
 if [[ -n "${PROJECT_ROOT:-}" && -d "${PROJECT_ROOT}/docs/lessons" ]]; then
-    PROJECT_LESSONS_DIR="${PROJECT_ROOT}/docs/lessons"
+    _canonical_bundled="$(cd "$LESSONS_DIR" 2>/dev/null && pwd)"
+    _canonical_project="$(cd "${PROJECT_ROOT}/docs/lessons" 2>/dev/null && pwd)"
+    if [[ "$_canonical_project" != "$_canonical_bundled" ]]; then
+        PROJECT_LESSONS_DIR="${PROJECT_ROOT}/docs/lessons"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
