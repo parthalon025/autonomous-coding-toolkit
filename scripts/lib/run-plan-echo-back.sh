@@ -167,3 +167,65 @@ ${retry_restatement}"
     echo "  Echo-back: FAILED after retry (spec not understood)" >&2
     return 1
 }
+
+# --- Tier 2: LLM semantic verification ---
+# Activates on batch 1, integration batches, or --strict-echo-back
+# Requires: claude CLI available
+run_echo_back_tier2() {
+    local batch_text="$1"
+    local agent_summary="$2"
+
+    if ! command -v claude >/dev/null 2>&1; then
+        echo "echo-back-tier2: claude CLI not available — skipping" >&2
+        return 0
+    fi
+
+    local prompt
+    prompt=$(cat <<PROMPT
+You are a specification compliance reviewer. Compare:
+
+SPECIFICATION:
+$batch_text
+
+AGENT'S UNDERSTANDING:
+$agent_summary
+
+Does the agent's understanding match the specification? Flag any:
+- Missing requirements
+- Added requirements not in spec
+- Misinterpreted requirements
+- Ambiguous interpretations
+
+Output exactly one line: PASS or FAIL followed by a colon and explanation.
+PROMPT
+    )
+
+    local result
+    result=$(echo "$prompt" | claude -p --max-tokens 200 2>/dev/null || echo "PASS: echo-back tier2 unavailable")
+
+    if echo "$result" | grep -qi "^FAIL"; then
+        echo "echo-back-tier2: FAILED — $result"
+        return 1
+    else
+        echo "echo-back-tier2: PASSED"
+        return 0
+    fi
+}
+
+# Determine if tier 2 should activate
+should_run_tier2() {
+    local batch_number="${1:-0}"
+    local batch_type="${2:-unknown}"
+    local strict="${3:-false}"
+
+    # Always on batch 1 (disproportionate risk)
+    [[ "$batch_number" == "1" ]] && return 0
+
+    # Always on integration batches
+    [[ "$batch_type" == "integration" ]] && return 0
+
+    # When strict mode is set
+    [[ "$strict" == "true" ]] && return 0
+
+    return 1
+}
