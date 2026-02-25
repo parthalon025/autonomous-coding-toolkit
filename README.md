@@ -4,11 +4,9 @@
 
 # Autonomous Coding Toolkit
 
+An autonomous AI coding agent that executes implementation plans with quality gates, fresh context per batch, and 79 community-contributed lessons that prevent the same bug twice. Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — works as a Claude Code plugin (interactive) or npm CLI for headless CI/CD execution.
+
 > **Goal:** Code better than a human on large projects — not by being smarter on any single batch, but by compounding learning across thousands of batches across hundreds of users.
-
-**A learning system for autonomous AI coding.** Fresh context per batch, quality gates between every step, 79 community lessons that prevent the same bug twice, and telemetry that makes the system smarter with every run.
-
-Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (v1.0.33+). Works as a Claude Code plugin (interactive) and npm CLI (headless/CI).
 
 ## Install
 
