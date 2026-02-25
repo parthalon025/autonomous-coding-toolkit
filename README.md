@@ -19,35 +19,53 @@ You write a plan → the toolkit executes it batch-by-batch with:
   - Machine-verifiable completion (every criterion is a shell command)
 ```
 
-## Install (2 commands)
+## Install
+
+### npm (recommended)
 
 ```bash
-# 1. Add the marketplace source
+npm install -g autonomous-coding-toolkit
+```
+
+This puts `act` on your PATH. Requires Node.js 18+ and bash 4+.
+
+### Claude Code Plugin
+
+```bash
+# Add the marketplace source
 /plugin marketplace add parthalon025/autonomous-coding-toolkit
 
-# 2. Install the plugin
+# Install the plugin
 /plugin install autonomous-coding-toolkit@autonomous-coding-toolkit
 ```
 
-<details>
-<summary>Alternative: standalone scripts (no plugin system)</summary>
+### From Source
 
 ```bash
 git clone https://github.com/parthalon025/autonomous-coding-toolkit.git
 cd autonomous-coding-toolkit
-scripts/run-plan.sh --help
+npm link  # puts 'act' on PATH
 ```
 
-</details>
+> **Windows:** Requires [WSL](https://learn.microsoft.com/en-us/windows/wsl/install). Run `wsl --install`, then use the toolkit inside WSL.
 
 ## Quick Start
 
 ```bash
+# Bootstrap your project
+act init --quickstart
+
 # Full pipeline — brainstorm → plan → execute → verify → finish
 /autocode "Add user authentication with JWT"
 
-# Or run a plan headless (fully autonomous, fresh context per batch)
-scripts/run-plan.sh docs/plans/my-feature.md --on-failure retry --notify
+# Run a plan headless (fully autonomous, fresh context per batch)
+act plan docs/plans/my-feature.md --on-failure retry --notify
+
+# Quality check
+act gate --project-root .
+
+# See all commands
+act help
 ```
 
 See [`examples/quickstart-plan.md`](examples/quickstart-plan.md) for a minimal plan you can run in 3 commands.
