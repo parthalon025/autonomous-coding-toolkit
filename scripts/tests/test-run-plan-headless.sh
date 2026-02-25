@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RP="$SCRIPT_DIR/../run-plan.sh"
 RPH="$SCRIPT_DIR/../lib/run-plan-headless.sh"
 RPEB="$SCRIPT_DIR/../lib/run-plan-echo-back.sh"
+RPS="$SCRIPT_DIR/../lib/run-plan-sampling.sh"
 
 FAILURES=0
 TESTS=0
@@ -33,6 +34,24 @@ else
     FAILURES=$((FAILURES + 1))
 fi
 
+# === Extracted echo-back file exists ===
+TESTS=$((TESTS + 1))
+if [[ -f "$RPEB" ]]; then
+    echo "PASS: run-plan-echo-back.sh exists"
+else
+    echo "FAIL: run-plan-echo-back.sh should exist at scripts/lib/"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# === Extracted sampling file exists ===
+TESTS=$((TESTS + 1))
+if [[ -f "$RPS" ]]; then
+    echo "PASS: run-plan-sampling.sh exists"
+else
+    echo "FAIL: run-plan-sampling.sh should exist at scripts/lib/"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # === run-plan.sh sources it ===
 
 TESTS=$((TESTS + 1))
@@ -40,6 +59,23 @@ if grep -q 'source.*lib/run-plan-headless.sh' "$RP"; then
     echo "PASS: run-plan.sh sources lib/run-plan-headless.sh"
 else
     echo "FAIL: run-plan.sh should source lib/run-plan-headless.sh"
+    FAILURES=$((FAILURES + 1))
+fi
+
+# === run-plan.sh sources new modules ===
+TESTS=$((TESTS + 1))
+if grep -q 'source.*lib/run-plan-echo-back.sh' "$RP"; then
+    echo "PASS: run-plan.sh sources lib/run-plan-echo-back.sh"
+else
+    echo "FAIL: run-plan.sh should source lib/run-plan-echo-back.sh"
+    FAILURES=$((FAILURES + 1))
+fi
+
+TESTS=$((TESTS + 1))
+if grep -q 'source.*lib/run-plan-sampling.sh' "$RP"; then
+    echo "PASS: run-plan.sh sources lib/run-plan-sampling.sh"
+else
+    echo "FAIL: run-plan.sh should source lib/run-plan-sampling.sh"
     FAILURES=$((FAILURES + 1))
 fi
 
@@ -175,41 +211,41 @@ fi
 
 # Baseline state must be saved as a patch file (not stash)
 TESTS=$((TESTS + 1))
-if grep -q '_baseline_patch' "$RPH"; then
-    echo "PASS: Sampling block saves baseline state as a patch file"
+if grep -q '_baseline_patch' "$RPS"; then
+    echo "PASS: run-plan-sampling.sh saves baseline state as a patch file"
 else
-    echo "FAIL: Sampling block should save baseline state as a patch file (bug #2/#27)"
+    echo "FAIL: run-plan-sampling.sh should save baseline state as a patch file (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 
 # Winner state must be saved as a patch file (not stash)
 TESTS=$((TESTS + 1))
-if grep -q '_winner_patch\|run-plan-winner' "$RPH"; then
-    echo "PASS: Sampling block saves winner state as a patch file"
+if grep -q '_winner_patch\|run-plan-winner' "$RPS"; then
+    echo "PASS: run-plan-sampling.sh saves winner state as a patch file"
 else
-    echo "FAIL: Sampling block should save winner state as a patch file (bug #2/#27)"
+    echo "FAIL: run-plan-sampling.sh should save winner state as a patch file (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 
-# No executable git stash usage remaining in sampling block (patch approach replaces it).
+# No executable git stash usage remaining in sampling module (patch approach replaces it).
 # Filter out comment lines (lines starting with optional whitespace + #).
 TESTS=$((TESTS + 1))
-sampling_block=$(sed -n '/If sampling enabled/,/continue.*Skip normal retry/p' "$RPH")
+sampling_block=$(sed -n '/^run_sampling_candidates()/,/^}/p' "$RPS")
 # Strip comment-only lines before counting stash calls
 stash_uses=$(echo "$sampling_block" | grep -v '^\s*#' | grep -c 'git stash' || true)
 if [[ "$stash_uses" -eq 0 ]]; then
-    echo "PASS: No git stash calls in sampling block (replaced by patch approach)"
+    echo "PASS: No git stash calls in run_sampling_candidates (replaced by patch approach)"
 else
-    echo "FAIL: Found $stash_uses git stash call(s) in sampling block — should use patch files (bug #2/#27)"
+    echo "FAIL: Found $stash_uses git stash call(s) in run_sampling_candidates — should use patch files (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 
 # Restore of winner uses git apply (patch approach)
 TESTS=$((TESTS + 1))
 if echo "$sampling_block" | grep -q 'git apply'; then
-    echo "PASS: Sampling block uses git apply to restore winner state"
+    echo "PASS: run_sampling_candidates uses git apply to restore winner state"
 else
-    echo "FAIL: Sampling block should use git apply to restore winner state (bug #2/#27)"
+    echo "FAIL: run_sampling_candidates should use git apply to restore winner state (bug #2/#27)"
     FAILURES=$((FAILURES + 1))
 fi
 
