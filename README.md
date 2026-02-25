@@ -151,6 +151,18 @@ Submit new lessons via `/submit-lesson` or [open an issue](https://github.com/pa
 
 Core skill chain forked from [superpowers](https://github.com/obra/superpowers) by Jesse Vincent / Anthropic. Extended with quality gate pipeline, headless execution, lesson system, MAB routing, and research/roadmap stages.
 
+## Research Sources
+
+The toolkit's design is grounded in peer-reviewed research. Key papers:
+
+- **SWE-bench Pro** (Xia et al., 2025) — 1,865 programming problems; removing specifications degraded agent success from 25.9% to 8.4%
+- **Chroma** (Hong et al., 2025) — Long-context coding benchmark; 11 of 12 models scored below 50% accuracy at 32K tokens
+- **Lost in the Middle** (Liu et al., Stanford TACL 2024) — Information placed mid-context suffers up to 20 percentage point accuracy loss
+- **OOPSLA 2025** — Property-based testing finds ~50x more mutations per test than traditional unit tests
+- **Cooper Stage-Gate** — Projects with stable, upfront definitions are 3x more likely to succeed
+
+16 research reports synthesizing 25+ papers: [`docs/RESEARCH.md`](docs/RESEARCH.md)
+
 ## License
 
 MIT
