@@ -1,0 +1,47 @@
+{
+  "name": "autonomous-coding-toolkit",
+  "version": "1.0.0",
+  "description": "Autonomous AI coding pipeline: quality gates, fresh-context execution, community lessons, and compounding learning",
+  "license": "MIT",
+  "author": "Justin McFarland <parthalon025@gmail.com>",
+  "homepage": "https://github.com/parthalon025/autonomous-coding-toolkit",
+  "repository": "https://github.com/parthalon025/autonomous-coding-toolkit",
+  "bin": {
+    "act": "./bin/act.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "skills/",
+    "commands/",
+    "agents/",
+    "hooks/",
+    "policies/",
+    "examples/",
+    "benchmarks/",
+    "docs/",
+    ".claude-plugin/",
+    "Makefile",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "keywords": [
+    "autonomous-coding",
+    "ai-agents",
+    "quality-gates",
+    "claude-code",
+    "tdd",
+    "lessons-learned",
+    "headless",
+    "multi-armed-bandit",
+    "code-review",
+    "pipeline"
+  ]
+}
