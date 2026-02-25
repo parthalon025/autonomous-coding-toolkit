@@ -187,8 +187,44 @@ case "$SUBCOMMAND" in
         fi
         ;;
 
+    trust)
+        if [[ ! -f "$TELEMETRY_FILE" ]] || [[ ! -s "$TELEMETRY_FILE" ]]; then
+            echo '{"score":0,"level":"new","runs":0,"message":"No telemetry data yet"}'
+            exit 0
+        fi
+
+        jq -s '
+            def trust_level(score; runs):
+                if runs < 10 then "new"
+                elif score < 30 then "new"
+                elif score < 70 then "growing"
+                elif score < 90 then "trusted"
+                else "autonomous"
+                end;
+
+            length as $total |
+            ([.[] | select(.passed_gate == true)] | length) as $passed |
+            (if $total > 0 then ($passed * 100 / $total) else 0 end) as $gate_rate |
+            $gate_rate as $score |
+            trust_level($score; $total) as $level |
+            {
+                score: $score,
+                level: $level,
+                runs: $total,
+                gate_pass_rate: $gate_rate,
+                default_mode: (
+                    if $level == "new" then "human checkpoint every batch"
+                    elif $level == "growing" then "headless with checkpoint every 3rd batch"
+                    elif $level == "trusted" then "headless with notification on failures only"
+                    else "full headless, post-run summary only"
+                    end
+                )
+            }
+        ' "$TELEMETRY_FILE"
+        ;;
+
     *)
-        echo "Usage: telemetry.sh <record|show|export|import|reset> --project-root <dir>" >&2
+        echo "Usage: telemetry.sh <record|show|export|import|reset|trust> --project-root <dir>" >&2
         exit 1
         ;;
 esac
