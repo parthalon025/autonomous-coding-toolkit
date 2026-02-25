@@ -1,6 +1,6 @@
 [![CI](https://github.com/parthalon025/autonomous-coding-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/parthalon025/autonomous-coding-toolkit/actions)
+[![npm](https://img.shields.io/npm/v/autonomous-coding-toolkit)](https://www.npmjs.com/package/autonomous-coding-toolkit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/parthalon025/autonomous-coding-toolkit/releases/tag/v1.0.0)
 
 # Autonomous Coding Toolkit
 
@@ -10,15 +10,6 @@
 
 Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (v1.0.33+). Works as a Claude Code plugin (interactive) and npm CLI (headless/CI).
 
-## What It Does
-
-```
-You write a plan → the toolkit executes it batch-by-batch with:
-  - Fresh 200k context window per batch (no accumulated degradation)
-  - Quality gates between every batch (tests + anti-pattern scan + memory check)
-  - Machine-verifiable completion (every criterion is a shell command)
-```
-
 ## Install
 
 ### npm (recommended)
@@ -27,7 +18,7 @@ You write a plan → the toolkit executes it batch-by-batch with:
 npm install -g autonomous-coding-toolkit
 ```
 
-This puts `act` on your PATH. Requires Node.js 18+ and bash 4+.
+This puts `act` on your PATH.
 
 ### Claude Code Plugin
 
@@ -47,7 +38,30 @@ cd autonomous-coding-toolkit
 npm link  # puts 'act' on PATH
 ```
 
-> **Windows:** Requires [WSL](https://learn.microsoft.com/en-us/windows/wsl/install). Run `wsl --install`, then use the toolkit inside WSL.
+### Platform Notes
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Linux** | Works out of the box | bash 4+, jq, git required |
+| **macOS** | Works with Homebrew bash | macOS ships bash 3.2 — install bash 4+ via `brew install bash`. Also install coreutils for GNU readlink: `brew install coreutils` |
+| **Windows** | WSL only | Run `wsl --install`, then use the toolkit inside WSL. Native Windows is not supported |
+
+<details>
+<summary>macOS setup</summary>
+
+macOS ships bash 3.2 (2007) due to licensing. The toolkit requires bash 4+ for associative arrays and other features.
+
+```bash
+# Install modern bash and GNU coreutils
+brew install bash coreutils jq
+
+# Verify
+bash --version  # Should show 5.x
+```
+
+Homebrew bash installs to `/opt/homebrew/bin/bash` (Apple Silicon) or `/usr/local/bin/bash` (Intel). The `act` CLI invokes scripts via `bash` — as long as Homebrew's bin is on your PATH (which `brew` sets up automatically), scripts will use the correct version.
+
+</details>
 
 ## Quick Start
 
@@ -80,13 +94,13 @@ Each stage exists because a specific failure mode demanded it:
 
 | Stage | Problem It Solves | Evidence |
 |-------|------------------|----------|
-| **Brainstorm** | Agents build the wrong thing correctly — spec misunderstanding is the dominant failure mode | SWE-bench Pro (1,865 problems): removing specs degraded success from 25.9% to 8.4% |
-| **Research** | Building on assumptions wastes hours | Cooper Stage-Gate: projects with stable definitions are 3x more likely to succeed |
+| **Brainstorm** | Agents build the wrong thing correctly | SWE-bench Pro: removing specs = 3x degradation |
+| **Research** | Building on assumptions wastes hours | Stage-Gate: stable definitions = 3x success rate |
 | **Plan** | Plan quality dominates execution quality ~3:1 | SWE-bench Pro: spec removal = 3x degradation |
-| **Execute** | Context degradation is the #1 quality killer | Chroma (Hong et al., 2025): 11/12 models < 50% at 32K tokens; Liu et al. (Stanford, TACL 2024): up to 20pp mid-context accuracy loss |
-| **Verify** | Static review misses behavioral bugs | OOPSLA 2025: property-based testing finds ~50x more mutations per test |
+| **Execute** | Context degradation is the #1 quality killer | 11/12 models < 50% at 32K tokens |
+| **Verify** | Static review misses behavioral bugs | Property-based testing finds ~50x more mutations |
 
-Full evidence table with all 25 papers: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Full evidence with 25+ papers across 16 research reports: [`docs/RESEARCH.md`](docs/RESEARCH.md)
 
 ## How It Compares
 
@@ -119,14 +133,16 @@ Submit new lessons via `/submit-lesson` or [open an issue](https://github.com/pa
 ## Requirements
 
 - **Claude Code** v1.0.33+ (`claude` CLI)
+- **Node.js** 18+ (for the `act` CLI router)
 - **bash** 4+, **jq**, **git**
-- Optional: **gh** (PR creation), **curl** (Telegram notifications)
+- Optional: **gh** (PR creation), **curl** (Telegram notifications), **ast-grep** (structural checks)
 
 ## Learn More
 
 | Topic | Doc |
 |-------|-----|
-| Architecture, evidence, internals | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Architecture and internals | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Research (25+ papers, 16 reports) | [`docs/RESEARCH.md`](docs/RESEARCH.md) |
 | Contributing lessons | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
 | Plan file format | [`examples/example-plan.md`](examples/example-plan.md) |
 | Execution modes (5 options) | [`docs/ARCHITECTURE.md#system-overview`](docs/ARCHITECTURE.md#system-overview) |
