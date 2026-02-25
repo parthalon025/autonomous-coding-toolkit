@@ -7,6 +7,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 LESSONS_DIR="${LESSONS_DIR:-$SCRIPT_DIR/../docs/lessons}"
 
+# Project-local lessons (Tier 3) — loaded alongside bundled lessons.
+# Set PROJECT_ROOT to the project being checked for project-specific anti-patterns.
+PROJECT_LESSONS_DIR=""
+if [[ -n "${PROJECT_ROOT:-}" && -d "${PROJECT_ROOT}/docs/lessons" ]]; then
+    PROJECT_LESSONS_DIR="${PROJECT_ROOT}/docs/lessons"
+fi
+
 # ---------------------------------------------------------------------------
 # parse_lesson <file>
 # shellcheck disable=SC2034  # lesson_severity, lesson_scope parsed for future filtering
@@ -373,6 +380,36 @@ for lfile in "$LESSONS_DIR"/[0-9]*.md; do
         ((violations++)) || true
     done < <(grep -EHn "$pattern_regex" "${target_files[@]}" 2>/dev/null || true)
 done
+
+# Load project-local lessons (Tier 3)
+if [[ -n "$PROJECT_LESSONS_DIR" ]]; then
+    for lfile in "$PROJECT_LESSONS_DIR"/[0-9]*.md; do
+        [[ -f "$lfile" ]] || continue
+        parse_lesson "$lfile" || continue
+
+        # Scope filtering: skip lessons that don't match this project
+        if [[ "$ALL_SCOPES" == false ]]; then
+            scope_matches "$lesson_scope" "$project_scope" || continue
+        fi
+
+        # Build list of target files that match this lesson's languages
+        target_files=()
+        local_f=""
+        for local_f in "${existing_files[@]}"; do
+            file_matches_languages "$local_f" "$lesson_languages" && target_files+=("$local_f")
+        done
+        [[ ${#target_files[@]} -eq 0 ]] && continue
+
+        # Run grep against matching files; format output as file:line: [lesson-N] title
+        local_id="$lesson_id"
+        local_title="$lesson_title"
+        while IFS=: read -r matched_file lineno _rest; do
+            [[ -z "$matched_file" ]] && continue
+            echo "${matched_file}:${lineno}: [lesson-${local_id}] ${local_title}"
+            ((violations++)) || true
+        done < <(grep -EHn "$pattern_regex" "${target_files[@]}" 2>/dev/null || true)
+    done
+fi
 
 # ---------------------------------------------------------------------------
 # Summary and exit
