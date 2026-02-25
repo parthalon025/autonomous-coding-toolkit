@@ -83,7 +83,7 @@ esac
 echo ""
 echo "--- Next Steps ---"
 echo ""
-echo "1. Quality gate:  act gate --project-root $PROJECT_ROOT"
+echo "1. Quality gate:  act gate --project-root \"$PROJECT_ROOT\""
 echo "2. Run a plan:    act plan docs/plans/your-plan.md"
 
 if [[ -n "$scope_lang" ]]; then

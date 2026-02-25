@@ -33,7 +33,12 @@ mkdir -p "$WORK/docs/plans"
 bash "$INIT_SCRIPT" --project-root "$WORK" --quickstart 2>&1 || true
 assert_eq "quickstart creates plan file" "true" "$([ -f "$WORK/docs/plans/quickstart.md" ] && echo true || echo false)"
 
-# --- Test 6: init is idempotent ---
+# --- Test 6: init fails without --project-root ---
+exit_code=0
+bash "$INIT_SCRIPT" 2>/dev/null || exit_code=$?
+assert_eq "init fails without --project-root" "1" "$exit_code"
+
+# --- Test 7: init is idempotent ---
 bash "$INIT_SCRIPT" --project-root "$WORK" 2>&1 || true
 exit_code=0
 bash "$INIT_SCRIPT" --project-root "$WORK" 2>&1 || exit_code=$?
