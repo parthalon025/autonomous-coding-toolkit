@@ -22,8 +22,9 @@ assert_eq "record creates telemetry.jsonl" "true" \
 
 # --- Test 2: record appends valid JSON ---
 line=$(head -1 "$WORK/logs/telemetry.jsonl")
-echo "$line" | jq . >/dev/null 2>&1
-assert_eq "record writes valid JSON" "0" "$?"
+jq_exit=0
+echo "$line" | jq . >/dev/null 2>&1 || jq_exit=$?
+assert_eq "record writes valid JSON" "0" "$jq_exit"
 
 # --- Test 3: show produces dashboard output ---
 output=$(bash "$TELEMETRY" show --project-root "$WORK" 2>&1 || true)

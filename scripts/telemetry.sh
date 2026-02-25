@@ -64,6 +64,9 @@ TELEMETRY_FILE="$PROJECT_ROOT/logs/telemetry.jsonl"
 case "$SUBCOMMAND" in
     record)
         mkdir -p "$PROJECT_ROOT/logs"
+        # Coerce numeric fields to prevent jq tonumber failures on empty strings
+        BATCH_NUMBER="${BATCH_NUMBER:-0}"; BATCH_NUMBER="${BATCH_NUMBER:-0}"
+        DURATION="${DURATION:-0}"; COST="${COST:-0}"; TEST_DELTA="${TEST_DELTA:-0}"
         jq -cn \
             --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg bn "${BATCH_NUMBER:-0}" \
