@@ -25,6 +25,9 @@ node_modules/
 # Worktrees
 .worktrees/
 
+# Benchmarks
+benchmarks/results/
+
 # IDE
 .vscode/
 .idea/
