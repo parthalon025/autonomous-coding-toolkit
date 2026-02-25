@@ -176,5 +176,22 @@ if [[ "$SHOW_COSTS" == true && -f "$STATE_FILE" ]]; then
     echo ""
 fi
 
+# Trust score (from telemetry)
+if [[ -x "$SCRIPT_DIR/telemetry.sh" ]]; then
+    trust_json=$("$SCRIPT_DIR/telemetry.sh" trust --project-root "$PROJECT_ROOT" 2>/dev/null || echo '{}')
+    trust_score=$(echo "$trust_json" | jq -r '.score // "n/a"' 2>/dev/null || echo "n/a")
+    trust_level=$(echo "$trust_json" | jq -r '.level // "unknown"' 2>/dev/null || echo "unknown")
+    trust_runs=$(echo "$trust_json" | jq -r '.runs // 0' 2>/dev/null || echo "0")
+    trust_mode=$(echo "$trust_json" | jq -r '.default_mode // "unknown"' 2>/dev/null || echo "unknown")
+
+    if [[ "$trust_score" != "n/a" && "$trust_runs" != "0" ]]; then
+        echo ""
+        echo "--- Trust Score ---"
+        echo "  Score: ${trust_score}/100 ($trust_runs runs)"
+        echo "  Level: $trust_level"
+        echo "  Default mode: $trust_mode"
+    fi
+fi
+
 echo ""
 echo "═══════════════════════════════════════════════"
