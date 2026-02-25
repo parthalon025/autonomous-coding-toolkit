@@ -247,4 +247,20 @@ fi
 
 echo ""
 echo "quality-gate: ALL PASSED"
+
+# === Telemetry capture (append batch result) ===
+# Only record if TELEMETRY_BATCH_NUMBER is set (called from run-plan context)
+if [[ -n "${TELEMETRY_BATCH_NUMBER:-}" ]]; then
+    "$SCRIPT_DIR/telemetry.sh" record \
+        --project-root "$PROJECT_ROOT" \
+        --batch-number "${TELEMETRY_BATCH_NUMBER}" \
+        --passed true \
+        --strategy "${TELEMETRY_STRATEGY:-unknown}" \
+        --duration "${TELEMETRY_DURATION:-0}" \
+        --cost "${TELEMETRY_COST:-0}" \
+        --test-delta "${TELEMETRY_TEST_DELTA:-0}" \
+        --batch-type "${TELEMETRY_BATCH_TYPE:-unknown}" \
+        2>/dev/null || true  # Never fail the gate for telemetry errors
+fi
+
 exit 0
