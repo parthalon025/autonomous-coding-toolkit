@@ -166,6 +166,21 @@ if [[ "$QUICK" != true ]]; then
     fi
 fi
 
+# === Check 2.7: Module size check (advisory) ===
+if [[ "$QUICK" != true ]]; then
+    echo ""
+    echo "=== Quality Gate: Module Size Check ==="
+    if [[ -x "$SCRIPT_DIR/module-size-check.sh" ]]; then
+        _size_exit=0
+        "$SCRIPT_DIR/module-size-check.sh" --project-root "$PROJECT_ROOT" || _size_exit=$?
+        if [[ $_size_exit -ne 0 ]]; then
+            echo "module-size-check: $( [ $_size_exit -eq 1 ] && echo "oversized modules detected (advisory)" || echo "error (exit $_size_exit)")"
+        fi
+    else
+        echo "module-size-check.sh not found — skipped"
+    fi
+fi
+
 # === Check 3: Project test suite (auto-detect) ===
 echo ""
 echo "=== Quality Gate: Test Suite ==="
