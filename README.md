@@ -155,10 +155,11 @@ Core skill chain forked from [superpowers](https://github.com/obra/superpowers) 
 
 The toolkit's design is grounded in peer-reviewed research. Key papers:
 
-- **SWE-bench Pro** (Xia et al., 2025) — 1,865 programming problems; removing specifications degraded agent success from 25.9% to 8.4%
-- **Chroma** (Hong et al., 2025) — Long-context coding benchmark; 11 of 12 models scored below 50% accuracy at 32K tokens
-- **Lost in the Middle** (Liu et al., Stanford TACL 2024) — Information placed mid-context suffers up to 20 percentage point accuracy loss
-- **OOPSLA 2025** — Property-based testing finds ~50x more mutations per test than traditional unit tests
+- [**SWE-bench Pro**](https://arxiv.org/pdf/2509.16941) (Xia et al., 2025) — 1,865 programming problems; removing specifications degraded agent success from 25.9% to 8.4%
+- [**Context Rot**](https://research.trychroma.com/context-rot) (Hong et al., Chroma 2025) — 11 of 12 models scored below 50% of short-context performance at 32K tokens
+- [**Lost in the Middle**](https://arxiv.org/abs/2307.03172) (Liu et al., Stanford TACL 2024) — Information placed mid-context suffers up to 20 percentage point accuracy loss
+- [**Agentic Property-Based Testing**](https://arxiv.org/html/2510.09907v1) (OOPSLA 2025) — Property-based testing finds ~50x more mutations per test than traditional unit tests
+- [**Bugs in LLM-Generated Code**](https://arxiv.org/abs/2403.08937) (Tambon et al., 2024) — Empirical taxonomy of AI code generation failures
 - **Cooper Stage-Gate** — Projects with stable, upfront definitions are 3x more likely to succeed
 
 16 research reports synthesizing 25+ papers: [`docs/RESEARCH.md`](docs/RESEARCH.md)
