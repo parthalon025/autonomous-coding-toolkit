@@ -9,16 +9,28 @@ const path = require('path');
 // Toolkit root: works for npm global, npx, and local clone
 // ---------------------------------------------------------------------------
 const TOOLKIT_ROOT = path.resolve(__dirname, '..');
-const pkg = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, 'package.json'), 'utf8'));
-const VERSION = pkg.version;
+let VERSION;
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, 'package.json'), 'utf8'));
+  VERSION = pkg.version;
+} catch (err) {
+  console.error('Error: Could not read package.json');
+  console.error(`  ${err.message}`);
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // Platform check — bash required
 // ---------------------------------------------------------------------------
 function checkPlatform() {
   if (process.platform === 'win32') {
-    const inWsl = fs.existsSync('/proc/version') &&
-      fs.readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft');
+    let inWsl = false;
+    try {
+      inWsl = fs.existsSync('/proc/version') &&
+        fs.readFileSync('/proc/version', 'utf8').toLowerCase().includes('microsoft');
+    } catch (_) {
+      // If /proc/version is unreadable, assume not WSL
+    }
     if (!inWsl) {
       console.error(
         'Error: act requires bash, which is not available on native Windows.\n' +
@@ -65,7 +77,7 @@ function runScript(scriptPath, args) {
   try {
     execFileSync('bash', [scriptPath, ...args], { stdio: 'inherit' });
   } catch (err) {
-    process.exit(err.status || 1);
+    process.exit(err.status != null ? err.status : 1);
   }
 }
 
