@@ -5,6 +5,17 @@
 FAILURES=0
 TESTS=0
 
+pass() {
+    TESTS=$((TESTS + 1))
+    echo "PASS: $1"
+}
+
+fail() {
+    TESTS=$((TESTS + 1))
+    echo "FAIL: $1"
+    FAILURES=$((FAILURES + 1))
+}
+
 assert_eq() {
     local desc="$1" expected="$2" actual="$3"
     TESTS=$((TESTS + 1))

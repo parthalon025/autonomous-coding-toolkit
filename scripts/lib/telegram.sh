@@ -6,7 +6,7 @@
 #   _send_telegram <message>       -> send via Telegram Bot API
 
 _load_telegram_env() {
-    local env_file="${1:-$HOME/.env}"
+    local env_file="${1:-${ACT_ENV_FILE:-$HOME/.env}}"
 
     if [[ ! -f "$env_file" ]]; then
         echo "WARNING: env file not found: $env_file" >&2
