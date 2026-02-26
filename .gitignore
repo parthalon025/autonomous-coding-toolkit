@@ -31,3 +31,10 @@ benchmarks/results/
 # IDE
 .vscode/
 .idea/
+
+# Autonomous Coding Toolkit (runtime state)
+tasks/
+logs/
+progress.txt
+.run-plan-state.json
+.worktrees/
