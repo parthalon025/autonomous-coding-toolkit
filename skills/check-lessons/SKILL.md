@@ -9,6 +9,8 @@ description: Use when starting planning or coding to surface relevant lessons th
 
 Proactive lesson retrieval that searches the lessons-learned system for patterns matching the current work. Surfaces relevant cluster mitigations, open corrective actions, and key takeaways before you start coding — preventing the same bug from happening twice.
 
+Uses `lessons-db search` (LanceDB semantic vector search + SQLite keyword/file matching) — not grep.
+
 ## When to Use
 
 - Before `EnterPlanMode` — check if planned work touches any lesson clusters
@@ -26,46 +28,42 @@ Determine what is being touched:
 - Which systems (HA, Telegram, Notion, systemd, etc.)?
 - Which patterns (async, error handling, data flow, schema, startup, etc.)?
 
-### Step 2: Search by Keyword
+### Step 2: Semantic Search
 
-Grep the SUMMARY.md Quick Reference table for matching terms:
-
-```bash
-# Search for keywords matching the work domain
-grep -i "keyword1\|keyword2\|keyword3" ~/Documents/docs/lessons/SUMMARY.md
-```
-
-Search for:
-- System names (e.g., "aria", "telegram", "systemd")
-- Pattern names (e.g., "async", "schema", "cache", "startup")
-- Error types (e.g., "silent", "missing", "wrong")
-- Cluster letters (A through F) relevant to the work type
-
-### Step 3: Search by File Overlap
-
-If specific files are being modified, check if any lesson references them:
+Run `lessons-db search` with descriptive queries for the work domain:
 
 ```bash
-# Search lesson files for matching file paths
-grep -rl "filename\|module_name" ~/Documents/docs/lessons/2026-*.md
+# Search by description of what's being built or the pattern at risk
+lessons-db search "async error handling fire and forget"
+lessons-db search "sqlite context manager connection close"
+lessons-db search "schema change consumer update"
+
+# Search by file being edited (surfaces lessons that reference this file)
+lessons-db search "" --file path/to/file.py
+
+# Search by code content (check against detection patterns)
+lessons-db search "" --content "except:"
 ```
 
-Then read matching lessons to extract their Key Takeaway and Corrective Actions.
+Run 2-3 focused queries targeting:
+- The specific system being touched (e.g., "HA entity state subscription")
+- The error pattern at risk (e.g., "silent exception return None")
+- The cluster domain (e.g., "cold start missing baseline seed")
 
-### Step 4: Read Cluster Mitigations
+### Step 3: Map Clusters
 
-For each matching cluster, read the mitigations from SUMMARY.md:
+For each result, note the cluster and look up cluster-wide mitigations:
 
-| Work Type | Check Clusters |
-|-----------|---------------|
-| Error handling, exception flow | A (Silent Failures) |
-| Cross-service changes, API contracts | B (Integration Boundary) |
-| Service restart, initialization | C (Cold-Start) |
-| Plan execution, spec interpretation | D (Specification Drift) |
-| Context management, lesson scoping | E (Context & Retrieval) |
-| Task decomposition, batch ordering | F (Planning & Control Flow) |
+| Cluster | Name | Watch For |
+|---------|------|-----------|
+| A | Silent Failures | Any fallback/except/return None without logging |
+| B | Integration Boundaries | Cross-service calls, shared state, API contracts |
+| C | Cold-Start | First-run, missing baselines, state seeding |
+| D | Specification Drift | Agent builds wrong thing correctly — verify spec |
+| E | Context & Retrieval | Info available but misscoped or buried |
+| F | Planning & Control Flow | Wrong decomposition contaminates downstream |
 
-### Step 5: Present Findings
+### Step 4: Present Findings
 
 Format output as:
 
@@ -73,44 +71,34 @@ Format output as:
 Relevant Lessons for [current work]:
 
 Cluster [X] ([Name]) — N matches:
-  #[num]: [one-line summary from Quick Reference table] (Tier: [tier])
-  #[num]: [one-line summary] (Tier: [tier])
+  #[num]: [one_liner from search result]
+  #[num]: [one_liner from search result]
   Mitigations:
-    1. [applicable mitigation from SUMMARY.md cluster section]
-    2. [applicable mitigation]
+    1. [applicable cluster mitigation]
+    2. [applicable cluster mitigation]
 
 File overlap:
   #[num] references [matching file] — Key Takeaway: [takeaway text]
-
-Open corrective actions:
-  #[num] Action [N]: [action description] (status: proposed)
 ```
 
-### Step 6: Flag Open Corrective Actions
+### Step 5: Flag Open Corrective Actions
 
-Read each matching lesson file and check the Corrective Actions table. If any action has `| proposed |` status, flag it — these are known fixes that haven't been validated yet.
-
-## Proactive Trigger Guidance
-
-This skill should be invoked automatically in these situations:
-
-1. **Before planning:** When about to enter plan mode for work touching files in `~/Documents/projects/ha-aria/`, `~/Documents/projects/telegram-*/`, or any project with lesson history
-2. **On test failure:** When a test fails with a pattern matching cluster keywords (silent return, schema mismatch, missing await, empty collection)
-3. **On file edit:** When modifying a file that appears in any lesson's Files field — use a quick grep to check
+Check `lessons-db status` for open scan findings and overdue corrective actions related to the matched lessons.
 
 ## Key References
 
-| File | Purpose |
-|------|---------|
-| `~/Documents/docs/lessons/SUMMARY.md` | Quick Reference table + cluster mitigations |
-| `~/Documents/docs/lessons/FRAMEWORK.md` | OIL taxonomy and category definitions |
-| `~/Documents/docs/lessons/DIAGNOSTICS.md` | Symptom-to-cause lookup table |
+| Source | How to query |
+|--------|-------------|
+| `lessons-db search "<query>"` | Semantic + keyword search (primary) |
+| `lessons-db search "" --file <path>` | File-overlap search |
+| `lessons-db search "" --content "<code>"` | Pattern match against detection rules |
+| `lessons-db status` | Open findings + overdue actions |
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| Searching only by system name | Also search by pattern (async, schema, cache) and error type (silent, missing) |
-| Ignoring standalone lessons (no cluster) | Standalone lessons still have Key Takeaways — include them if keywords match |
-| Skipping open corrective actions | Proposed actions are the highest-signal items — they represent known but unvalidated fixes |
-| Dumping all 72 lessons | Filter aggressively — only surface lessons with keyword, file, or cluster overlap to the current work |
+| Using grep on markdown files | Use `lessons-db search` — it has semantic search, not just keyword match |
+| Single vague query | Run 2-3 focused queries: system, error pattern, cluster domain |
+| Ignoring standalone lessons (no cluster) | Search results include all lessons — cluster assignment is informational |
+| Skipping open corrective actions | Run `lessons-db status` to surface proposed-but-unvalidated fixes |
