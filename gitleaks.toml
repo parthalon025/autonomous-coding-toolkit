@@ -1,0 +1,7 @@
+title = "autonomous-coding-toolkit gitleaks config"
+[extend]
+useDefault = true
+[[rules.allowlists]]
+description = "Test fixture credentials"
+regexes = ["test[-_]token","fake[-_](key|token|secret|api)","example[-_](key|token)"]
+paths = ["tests/",".env.example"]

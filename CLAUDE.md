@@ -228,3 +228,23 @@ language:bash, project:autonomous-coding-toolkit
 - Brainstorming is mandatory before any new feature — no exceptions
 - No completion claims without fresh verification evidence
 
+## Code Quality
+- Lint: `make lint`
+- Format: `make format`
+
+## Development Quality Gates
+- Before committing: `/verify`
+- Before PRs: `lessons-db scan --target . --baseline HEAD`
+
+## Lessons
+- Check before planning: `/check-lessons`
+- Capture after bugs: `/capture-lesson`
+- Lessons location: `docs/lessons/`
+
+## Local AI Review
+- Code review: `ollama-code-review .`
+
+## Semantic Search
+- Generate: `bash scripts/generate-embeddings.sh`
+- Storage: `.embeddings/` (gitignored)
+
