@@ -155,6 +155,14 @@ do_install() {
             echo "  + post-commit (lessons-db auto-import)"
             installed=$((installed + 1))
         fi
+        local evaluator_src="${REPO_ROOT}/hooks/post-commit-evaluator.sh"
+        local evaluator_dest="${git_hooks_dir}/post-commit-evaluator.sh"
+        if [[ -f "$evaluator_src" ]]; then
+            cp "$evaluator_src" "$evaluator_dest"
+            chmod +x "$evaluator_dest"
+            echo "  + post-commit-evaluator.sh (heeded/recurrence outcome recording)"
+            installed=$((installed + 1))
+        fi
     else
         echo "  ~ no .git directory found — skipping git hook installation"
     fi
