@@ -202,19 +202,12 @@ run_lesson_checks() {
 }
 
 # ---------------------------------------------------------------------------
-# Main loop: iterate lesson files, run syntactic checks
+# Primary: query lessons-db if available; fall back to markdown files.
+# Set LESSON_CHECK_NO_DB=1 to force the markdown fallback (e.g. for testing
+# custom LESSONS_DIR lesson sets or offline environments).
 # ---------------------------------------------------------------------------
-run_lesson_checks "$LESSONS_DIR" "${existing_files[@]}"
-
-# Load project-local lessons (Tier 3)
-if [[ -n "$PROJECT_LESSONS_DIR" ]]; then
-    run_lesson_checks "$PROJECT_LESSONS_DIR" "${existing_files[@]}"
-fi
-
-# ---------------------------------------------------------------------------
-# Enhancement: query lessons-db for additional coverage if available
-# ---------------------------------------------------------------------------
-if command -v lessons-db &>/dev/null && command -v jq &>/dev/null; then
+if [[ "${LESSON_CHECK_NO_DB:-0}" != "1" ]] && command -v lessons-db &>/dev/null && command -v jq &>/dev/null; then
+    # lessons-db is the canonical source — query its detection_patterns table
     _ldb_args=()
     for _f in "${existing_files[@]}"; do
         _ldb_args+=("-f" "$_f")
@@ -228,11 +221,19 @@ if command -v lessons-db &>/dev/null && command -v jq &>/dev/null; then
             _title=$(echo "$entry" | jq -r '.one_liner // .title')
             _dedup_key="lesson-${_id}:${_file}:${_line}"
             if [[ -z "${seen_violations[$_dedup_key]+_}" ]]; then
-                echo "${_file}:${_line}: [lesson-${_id}] ${_title} (via lessons-db)"
+                echo "${_file}:${_line}: [lesson-${_id}] ${_title}"
                 ((violations++)) || true
                 seen_violations["$_dedup_key"]=1
             fi
         done < <(echo "$_ldb_output" | jq -c '.[]')
+    fi
+else
+    # Fallback: read detection patterns directly from markdown lesson files
+    run_lesson_checks "$LESSONS_DIR" "${existing_files[@]}"
+
+    # Load project-local lessons (Tier 3)
+    if [[ -n "$PROJECT_LESSONS_DIR" ]]; then
+        run_lesson_checks "$PROJECT_LESSONS_DIR" "${existing_files[@]}"
     fi
 fi
 

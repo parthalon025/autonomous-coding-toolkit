@@ -25,6 +25,8 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 # --- Test 1: Detects bare except in Python file (lesson 1, uses \s) ---
+# Uses LESSON_CHECK_NO_DB=1 to test the markdown fallback path, which validates
+# PCRE-to-ERE conversion (\s) and per-lesson ID numbering from markdown files.
 cat > "$WORK/bad.py" <<'PY'
 try:
     do_something()
@@ -34,7 +36,7 @@ PY
 
 # PROJECT_CLAUDE_MD=/dev/null isolates from toolkit's scope tags (language:bash would filter out python lessons)
 # cd into $WORK so detect_project_type doesn't find toolkit's package.json and infer language:javascript
-output=$(cd "$WORK" && PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
+output=$(cd "$WORK" && PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     pass "Detects bare except in Python file (lesson 1, \\s ERE conversion)"
 else
@@ -49,7 +51,7 @@ except ValueError:
     pass
 PY
 
-output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/good.py" 2>&1 || true)
+output=$(PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/good.py" 2>&1 || true)
 if echo "$output" | grep -q 'clean'; then
     pass "Clean file reports clean"
 else
@@ -57,11 +59,12 @@ else
 fi
 
 # --- Test 3: PCRE shorthand \d works via ERE conversion (lesson 28, hardcoded IP) ---
+# Uses LESSON_CHECK_NO_DB=1 to test the PCRE-to-ERE conversion path in lesson-check-lib.sh.
 cat > "$WORK/bad_ip.js" <<'JS'
 const url = "http://192.168.1.1/api";
 JS
 
-output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad_ip.js" 2>&1 || true)
+output=$(PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/bad_ip.js" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-28\]'; then
     pass "PCRE \\d converted to ERE [0-9] detects hardcoded IPs"
 else
@@ -73,7 +76,7 @@ cat > "$WORK/not_python.sh" <<'SH'
 except:
 SH
 
-output=$(PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/not_python.sh" 2>&1 || true)
+output=$(PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/not_python.sh" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     fail "Python-only lesson 1 should not match .sh files"
 else
@@ -183,7 +186,7 @@ cat > "$WORK/scoped.py" <<'PY'
 test_scope_marker = True
 PY
 
-output=$(cd "$WORK" && LESSONS_DIR="$WORK" bash "$LESSON_CHECK" "$WORK/scoped.py" 2>&1 || true)
+output=$(cd "$WORK" && LESSONS_DIR="$WORK" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/scoped.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-999\]'; then
     pass "Scoped lesson detected when project scope matches"
 else
@@ -198,7 +201,7 @@ cat > "$WORK/CLAUDE-noscope.md" <<'CMD'
 domain:ha-aria
 CMD
 
-output=$(cd "$WORK" && LESSONS_DIR="$WORK" PROJECT_CLAUDE_MD="$WORK/CLAUDE-noscope.md" bash "$LESSON_CHECK" "$WORK/scoped.py" 2>&1 || true)
+output=$(cd "$WORK" && LESSONS_DIR="$WORK" LESSON_CHECK_NO_DB=1 PROJECT_CLAUDE_MD="$WORK/CLAUDE-noscope.md" bash "$LESSON_CHECK" "$WORK/scoped.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-999\]'; then
     fail "Scoped lesson should be SKIPPED when project scope doesn't match"
 else
@@ -206,10 +209,11 @@ else
 fi
 
 # --- Test 11: Lesson without scope defaults to universal (backward compat) ---
-# Use the real lesson 1 (no scope field) — should still work as before
+# Use the real lesson 1 (no scope field) — should still work as before.
+# Uses LESSON_CHECK_NO_DB=1 to test the markdown fallback path's scope defaulting.
 # Isolate from repo's own CLAUDE.md by pointing PROJECT_CLAUDE_MD to /dev/null
 # cd into $WORK so detect_project_type doesn't find toolkit's package.json
-output=$(cd "$WORK" && PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
+output=$(cd "$WORK" && PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/bad.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-1\]'; then
     pass "Lesson without scope: field defaults to universal (backward compatible)"
 else
@@ -247,7 +251,7 @@ ha_scope_marker = True
 PY
 
 # Without --all-scopes: lesson 998 should be skipped (project is python, not ha-aria)
-output=$(cd "$WORK" && LESSONS_DIR="$WORK" bash "$LESSON_CHECK" "$WORK/ha_file.py" 2>&1 || true)
+output=$(cd "$WORK" && LESSONS_DIR="$WORK" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$WORK/ha_file.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-998\]'; then
     fail "domain:ha-aria lesson should be skipped on a python-only project"
 else
@@ -255,7 +259,7 @@ else
 fi
 
 # With --all-scopes: lesson 998 should fire
-output=$(cd "$WORK" && LESSONS_DIR="$WORK" bash "$LESSON_CHECK" --all-scopes "$WORK/ha_file.py" 2>&1 || true)
+output=$(cd "$WORK" && LESSONS_DIR="$WORK" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" --all-scopes "$WORK/ha_file.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-998\]'; then
     pass "--all-scopes bypasses scope filtering"
 else
@@ -263,7 +267,7 @@ else
 fi
 
 # --- Test 14: --scope override replaces CLAUDE.md detection ---
-output=$(cd "$WORK" && LESSONS_DIR="$WORK" bash "$LESSON_CHECK" --scope "domain:ha-aria" "$WORK/ha_file.py" 2>&1 || true)
+output=$(cd "$WORK" && LESSONS_DIR="$WORK" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" --scope "domain:ha-aria" "$WORK/ha_file.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-998\]'; then
     pass "--scope override enables matching for specified scope"
 else
@@ -294,7 +298,7 @@ cat > "$PROJECT_WORK/target.py" <<'PY'
 project_local_marker_xyzzy = True
 PY
 
-output=$(cd "$PROJECT_WORK" && PROJECT_ROOT="$PROJECT_WORK" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$PROJECT_WORK/target.py" 2>&1 || true)
+output=$(cd "$PROJECT_WORK" && PROJECT_ROOT="$PROJECT_WORK" PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$PROJECT_WORK/target.py" 2>&1 || true)
 if echo "$output" | grep -q '\[lesson-8001\]'; then
     pass "PROJECT_ROOT loads project-local lessons (Tier 3)"
 else
@@ -328,7 +332,7 @@ dedup_test_marker = True
 PY
 
 # Use same dir for LESSONS_DIR and PROJECT_ROOT so both loops scan the same lesson
-output=$(cd "$DEDUP_WORK" && LESSONS_DIR="$DEDUP_WORK" PROJECT_ROOT="$DEDUP_WORK" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$DEDUP_WORK/target.py" 2>&1 || true)
+output=$(cd "$DEDUP_WORK" && LESSONS_DIR="$DEDUP_WORK" PROJECT_ROOT="$DEDUP_WORK" PROJECT_CLAUDE_MD="/dev/null" LESSON_CHECK_NO_DB=1 bash "$LESSON_CHECK" "$DEDUP_WORK/target.py" 2>&1 || true)
 # Count how many times the violation appears — should be exactly 1 due to dedup
 match_count=$(echo "$output" | grep -c '\[lesson-9001\]' || true)
 if [[ "$match_count" -eq 1 ]]; then

@@ -144,6 +144,22 @@ do_install() {
     done
 
     echo ""
+    echo "Git hooks:"
+    local git_hooks_dir="${REPO_ROOT}/.git/hooks"
+    if [[ -d "$git_hooks_dir" ]]; then
+        local hook_src="${REPO_ROOT}/hooks/post-commit"
+        local hook_dest="${git_hooks_dir}/post-commit"
+        if [[ -f "$hook_src" ]]; then
+            cp "$hook_src" "$hook_dest"
+            chmod +x "$hook_dest"
+            echo "  + post-commit (lessons-db auto-import)"
+            installed=$((installed + 1))
+        fi
+    else
+        echo "  ~ no .git directory found — skipping git hook installation"
+    fi
+
+    echo ""
     echo "Done: $installed installed, $replaced updated, $skipped skipped"
 }
 

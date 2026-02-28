@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# post-commit — Auto-import new lesson .md files committed to docs/lessons/ into lessons-db
+# Installed to .git/hooks/post-commit by install.sh
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+new_lessons=$(git diff HEAD~1 --name-only --diff-filter=A 2>/dev/null | grep "^docs/lessons/.*\.md$" || true)
+
+if [[ -z "$new_lessons" ]]; then
+    exit 0
+fi
+
+if ! command -v lessons-db &>/dev/null; then
+    echo "[lessons-db] not installed — skipping auto-import" >&2
+    exit 0
+fi
+
+while IFS= read -r lesson_file; do
+    echo "[lessons-db] importing: $lesson_file"
+    lessons-db import "${REPO_ROOT}/${lesson_file}" 2>&1 || echo "[lessons-db] import failed for $lesson_file — skipping" >&2
+done <<< "$new_lessons"
