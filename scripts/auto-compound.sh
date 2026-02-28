@@ -267,6 +267,12 @@ $QUALITY_CHECKS
   gh pr create --title "compound: $PRIORITY" --body "$PR_BODY" 2>/dev/null || echo "PR creation skipped (may already exist)"
 fi
 
+# Enhancement: capture lessons from this compound run
+if command -v lessons-db &>/dev/null; then
+    echo "  [lessons-db] Capturing lessons from compound diff..."
+    git diff "origin/main...${BRANCH_NAME}" | lessons-db capture diff 2>/dev/null || true
+fi
+
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "  Pipeline complete!"
