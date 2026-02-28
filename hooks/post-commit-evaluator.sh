@@ -10,7 +10,7 @@ if [[ -z "${LESSONS_DB}" ]]; then
 fi
 
 # Get lessons surfaced in the last 6 hours (covering current session)
-SURFACED_IDS=$("${LESSONS_DB}" learn list --since 6h --format ids 2>/dev/null || true)
+SURFACED_IDS=$("${LESSONS_DB}" learn list --since 6h --format ids --outcome unknown 2>/dev/null || true)
 if [[ -z "${SURFACED_IDS}" ]]; then
     exit 0
 fi
