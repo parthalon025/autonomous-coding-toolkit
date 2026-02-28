@@ -153,6 +153,7 @@ detect_project_scope() {
 
     # Fallback: detect project type → language tag
     if [[ -z "$project_scope" ]]; then
+        # shellcheck disable=SC2154  # SCRIPT_DIR set by the sourcing script (see file header)
         source "$SCRIPT_DIR/lib/common.sh" 2>/dev/null || true
         if type detect_project_type &>/dev/null; then
             local ptype

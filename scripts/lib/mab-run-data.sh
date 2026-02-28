@@ -8,6 +8,7 @@
 #   update_mab_data <winner> <lesson> <batch_type>
 #
 # Requires: MAB_WORKTREE, MAB_BATCH to be set by the sourcing script.
+# shellcheck disable=SC2154  # MAB_WORKTREE and MAB_BATCH globals are set by the sourcing script
 
 # --- Template substitution ---
 # Replaces {PLACEHOLDER} tokens in a prompt template with actual values.

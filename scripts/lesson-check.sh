@@ -29,9 +29,13 @@ build_help() {
     for lfile in "$LESSONS_DIR"/[0-9]*.md; do
         [[ -f "$lfile" ]] || continue
         if parse_lesson "$lfile"; then
+            # lesson_* globals are set as side-effects of parse_lesson() — see lesson-check-lib.sh header
+            # shellcheck disable=SC2154
             local lang_display="$lesson_languages"
             [[ "$lang_display" == "all" ]] && lang_display="all files"
+            # shellcheck disable=SC2154
             local scope_display="$lesson_scope"
+            # shellcheck disable=SC2154
             checks_text+="  [lesson-${lesson_id}]  ${lesson_title} (${lang_display}) [scope: ${scope_display}]"$'\n'
         fi
     done
@@ -174,9 +178,15 @@ run_lesson_checks() {
         [[ ${#matched_targets[@]} -eq 0 ]] && continue
 
         # Run grep against matching files; format output as file:line: [lesson-N] title
+        # lesson_* and pattern_regex globals are set as side-effects of parse_lesson()
+        # shellcheck disable=SC2154
         local local_id="$lesson_id"
+        # shellcheck disable=SC2154
         local local_title="$lesson_title"
+        # shellcheck disable=SC2154
         local local_positive_alternative="$lesson_positive_alternative"
+        # shellcheck disable=SC2154
+        local local_pattern_regex="$pattern_regex"
         while IFS=: read -r matched_file lineno _rest; do
             [[ -z "$matched_file" ]] && continue
             local dedup_key="lesson-${local_id}:${matched_file}:${lineno}"
@@ -187,7 +197,7 @@ run_lesson_checks() {
                 echo "  → Instead: ${local_positive_alternative}"
             fi
             ((violations++)) || true
-        done < <(grep -EHn "$pattern_regex" "${matched_targets[@]}" 2>/dev/null || true)
+        done < <(grep -EHn "$local_pattern_regex" "${matched_targets[@]}" 2>/dev/null || true)
     done
 }
 

@@ -11,6 +11,7 @@
 #
 # Requires: MAB_WORKTREE, MAB_BATCH, MAB_WORK_UNIT, MAB_PLAN, MAB_QUALITY_GATE
 #           SCRIPT_DIR to be set by the sourcing script.
+# shellcheck disable=SC2154  # All MAB_* and SCRIPT_DIR globals are set by the sourcing script
 
 # --- Create MAB worktrees ---
 create_mab_worktrees() {
