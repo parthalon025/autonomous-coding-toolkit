@@ -1,4 +1,4 @@
-.PHONY: test validate lint ci
+.PHONY: test validate lint ci install uninstall status
 
 lint:
 	@echo "=== ShellCheck ==="
@@ -19,3 +19,12 @@ validate:
 
 ci: lint validate test
 	@echo "CI: ALL PASSED"
+
+install:
+	@bash install.sh
+
+uninstall:
+	@bash install.sh --uninstall
+
+status:
+	@bash install.sh --status
