@@ -176,12 +176,16 @@ run_lesson_checks() {
         # Run grep against matching files; format output as file:line: [lesson-N] title
         local local_id="$lesson_id"
         local local_title="$lesson_title"
+        local local_positive_alternative="$lesson_positive_alternative"
         while IFS=: read -r matched_file lineno _rest; do
             [[ -z "$matched_file" ]] && continue
             local dedup_key="lesson-${local_id}:${matched_file}:${lineno}"
             [[ -n "${seen_violations[$dedup_key]+_}" ]] && continue
             seen_violations["$dedup_key"]=1
             echo "${matched_file}:${lineno}: [lesson-${local_id}] ${local_title}"
+            if [[ -n "$local_positive_alternative" ]]; then
+                echo "  → Instead: ${local_positive_alternative}"
+            fi
             ((violations++)) || true
         done < <(grep -EHn "$pattern_regex" "${matched_targets[@]}" 2>/dev/null || true)
     done

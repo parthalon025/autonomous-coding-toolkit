@@ -27,6 +27,23 @@ Generated: 2026-02-24
 2 ──────→ 4
 ```
 
+## Milestone Criteria
+
+### Phase 1 Complete
+- `pytest tests/test_schema.py -q` exits 0 (migrations run clean)
+- `curl -s localhost:8080/api/auth/token -d '{"user":"test","pass":"test"}' | jq -e '.token'` exits 0
+- No hardcoded credentials: `git grep -i "password\s*=" -- '*.py' | grep -v test` is empty
+
+### Phase 2 Complete
+- All Phase 1 criteria still pass
+- `pytest tests/test_users.py tests/test_auth.py -q` exits 0
+- RBAC enforces role boundaries: `pytest tests/test_rbac.py -q` exits 0
+
+### Phase 3 Complete
+- All Phase 1 and 2 criteria still pass
+- `npm run build` exits 0 (dashboard builds without error)
+- `playwright test tests/e2e/admin.spec.ts` exits 0 (end-to-end admin flow passes)
+
 ## Total Estimate
 - Features: 5
 - Phases: 3

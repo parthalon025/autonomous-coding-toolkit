@@ -19,6 +19,7 @@ parse_lesson() {
     pattern_regex=""
     lesson_languages=""
     lesson_scope=""
+    lesson_positive_alternative=""
 
     # Parse YAML frontmatter with sed + read (no eval — safe with special chars).
     # Extract text between first two --- delimiters, then parse key: value lines.
@@ -58,6 +59,12 @@ parse_lesson() {
                 lesson_scope="${lesson_scope//,/ }"
                 lesson_scope="${lesson_scope## }"
                 lesson_scope="${lesson_scope%% }"
+            elif [[ "$line" =~ ^positive_alternative:[[:space:]]+(.*) ]]; then
+                lesson_positive_alternative="${BASH_REMATCH[1]}"
+                lesson_positive_alternative="${lesson_positive_alternative#\"}"
+                lesson_positive_alternative="${lesson_positive_alternative%\"}"
+                lesson_positive_alternative="${lesson_positive_alternative#\'}"
+                lesson_positive_alternative="${lesson_positive_alternative%\'}"
             fi
         else
             # Nested pattern: fields (indented)
