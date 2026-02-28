@@ -6,7 +6,7 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-new_lessons=$(git diff HEAD~1 --name-only --diff-filter=A 2>/dev/null | grep "^docs/lessons/.*\.md$" || true)
+new_lessons=$(git diff HEAD~1 --name-only --diff-filter=A 2>/dev/null | grep "^docs/lessons/.*\.md$" | grep -vE "/(ARCHIVED|TEMPLATE|SUMMARY|FRAMEWORK|DIAGNOSTICS|README)\.md$" || true)
 
 if [[ -n "${new_lessons}" ]]; then
     if ! command -v lessons-db &>/dev/null; then
