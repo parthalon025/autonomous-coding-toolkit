@@ -33,8 +33,8 @@ COMMIT_SUBJECT=${COMMIT_SUBJECT:-commit}
 while IFS= read -r lesson_id; do
     [[ -z "${lesson_id}" ]] && continue
 
-    # Check if this lesson's patterns appear in the diff
-    VIOLATIONS=$("${LESSONS_DB}" check --lesson-id "${lesson_id}" --file "${DIFF_TMP}" 2>/dev/null || true)
+    # Check if any lesson patterns appear in the diff
+    VIOLATIONS=$("${LESSONS_DB}" check --files "${DIFF_TMP}" 2>/dev/null || true)
 
     if [[ -n "${VIOLATIONS}" ]]; then
         # Pattern found in diff — lesson was NOT applied (recurrence)
