@@ -159,6 +159,16 @@ else
 fi
 rm -rf "$TMPDIR_SPACES"
 
+# === lessons-db capture block exists in source ===
+
+TESTS=$((TESTS + 1))
+if grep -q 'lessons-db capture diff' "$AC"; then
+    echo "PASS: auto-compound.sh contains lessons-db capture diff block"
+else
+    echo "FAIL: auto-compound.sh should contain lessons-db capture diff block"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # === Summary ===
 echo ""
 echo "Results: $((TESTS - FAILURES))/$TESTS passed"

@@ -281,6 +281,7 @@ if [[ "$SHOW_SCOPE" == true ]]; then
 fi
 
 violations=0
+declare -A seen_violations
 
 # ---------------------------------------------------------------------------
 # Gather file list: args → stdin pipe → git diff fallback
@@ -355,39 +356,17 @@ file_matches_languages() {
 }
 
 # ---------------------------------------------------------------------------
-# Main loop: iterate lesson files, run syntactic checks
+# run_lesson_checks <lessons_dir> <target_files...>
+# Iterate lesson files in a directory, run syntactic checks against target files.
+# Populates seen_violations associative array for dedup across directories.
 # ---------------------------------------------------------------------------
-lfile=""
-for lfile in "$LESSONS_DIR"/[0-9]*.md; do
-    [[ -f "$lfile" ]] || continue
-    parse_lesson "$lfile" || continue
+run_lesson_checks() {
+    local lessons_dir="$1"
+    shift
+    local target_files_all=("$@")
 
-    # Scope filtering: skip lessons that don't match this project
-    if [[ "$ALL_SCOPES" == false ]]; then
-        scope_matches "$lesson_scope" "$project_scope" || continue
-    fi
-
-    # Build list of target files that match this lesson's languages
-    target_files=()
-    local_f=""
-    for local_f in "${existing_files[@]}"; do
-        file_matches_languages "$local_f" "$lesson_languages" && target_files+=("$local_f")
-    done
-    [[ ${#target_files[@]} -eq 0 ]] && continue
-
-    # Run grep against matching files; format output as file:line: [lesson-N] title
-    local_id="$lesson_id"
-    local_title="$lesson_title"
-    while IFS=: read -r matched_file lineno _rest; do
-        [[ -z "$matched_file" ]] && continue
-        echo "${matched_file}:${lineno}: [lesson-${local_id}] ${local_title}"
-        ((violations++)) || true
-    done < <(grep -EHn "$pattern_regex" "${target_files[@]}" 2>/dev/null || true)
-done
-
-# Load project-local lessons (Tier 3)
-if [[ -n "$PROJECT_LESSONS_DIR" ]]; then
-    for lfile in "$PROJECT_LESSONS_DIR"/[0-9]*.md; do
+    local lfile=""
+    for lfile in "$lessons_dir"/[0-9]*.md; do
         [[ -f "$lfile" ]] || continue
         parse_lesson "$lfile" || continue
 
@@ -397,22 +376,60 @@ if [[ -n "$PROJECT_LESSONS_DIR" ]]; then
         fi
 
         # Build list of target files that match this lesson's languages
-        target_files=()
-        local_f=""
-        for local_f in "${existing_files[@]}"; do
-            file_matches_languages "$local_f" "$lesson_languages" && target_files+=("$local_f")
+        local matched_targets=()
+        local local_f=""
+        for local_f in "${target_files_all[@]}"; do
+            file_matches_languages "$local_f" "$lesson_languages" && matched_targets+=("$local_f")
         done
-        [[ ${#target_files[@]} -eq 0 ]] && continue
+        [[ ${#matched_targets[@]} -eq 0 ]] && continue
 
         # Run grep against matching files; format output as file:line: [lesson-N] title
-        local_id="$lesson_id"
-        local_title="$lesson_title"
+        local local_id="$lesson_id"
+        local local_title="$lesson_title"
         while IFS=: read -r matched_file lineno _rest; do
             [[ -z "$matched_file" ]] && continue
+            local dedup_key="lesson-${local_id}:${matched_file}:${lineno}"
+            [[ -n "${seen_violations[$dedup_key]+_}" ]] && continue
+            seen_violations["$dedup_key"]=1
             echo "${matched_file}:${lineno}: [lesson-${local_id}] ${local_title}"
             ((violations++)) || true
-        done < <(grep -EHn "$pattern_regex" "${target_files[@]}" 2>/dev/null || true)
+        done < <(grep -EHn "$pattern_regex" "${matched_targets[@]}" 2>/dev/null || true)
     done
+}
+
+# ---------------------------------------------------------------------------
+# Main loop: iterate lesson files, run syntactic checks
+# ---------------------------------------------------------------------------
+run_lesson_checks "$LESSONS_DIR" "${existing_files[@]}"
+
+# Load project-local lessons (Tier 3)
+if [[ -n "$PROJECT_LESSONS_DIR" ]]; then
+    run_lesson_checks "$PROJECT_LESSONS_DIR" "${existing_files[@]}"
+fi
+
+# ---------------------------------------------------------------------------
+# Enhancement: query lessons-db for additional coverage if available
+# ---------------------------------------------------------------------------
+if command -v lessons-db &>/dev/null && command -v jq &>/dev/null; then
+    _ldb_args=()
+    for _f in "${existing_files[@]}"; do
+        _ldb_args+=("-f" "$_f")
+    done
+    _ldb_output=$(lessons-db check "${_ldb_args[@]}" --json 2>/dev/null) || true
+    if [[ -n "$_ldb_output" && "$_ldb_output" != "[]" ]]; then
+        while IFS= read -r entry; do
+            _file=$(echo "$entry" | jq -r '.file_path')
+            _line=$(echo "$entry" | jq -r '.line_number // 0')
+            _id=$(echo "$entry" | jq -r '.lesson_id')
+            _title=$(echo "$entry" | jq -r '.one_liner // .title')
+            _dedup_key="lesson-${_id}:${_file}:${_line}"
+            if [[ -z "${seen_violations[$_dedup_key]+_}" ]]; then
+                echo "${_file}:${_line}: [lesson-${_id}] ${_title} (via lessons-db)"
+                ((violations++)) || true
+                seen_violations["$_dedup_key"]=1
+            fi
+        done < <(echo "$_ldb_output" | jq -c '.[]')
+    fi
 fi
 
 # ---------------------------------------------------------------------------

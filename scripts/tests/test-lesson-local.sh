@@ -48,8 +48,17 @@ cat > "$WORK/good.py" <<'PY'
 x = LOCALTEST_GOOD_PATTERN
 PY
 
+# Exclude lessons-db from PATH so only syntactic checks run (lessons-db may find
+# semantic violations in arbitrary test content that don't apply here).
+_ldb_dir=$(dirname "$(command -v lessons-db 2>/dev/null)" 2>/dev/null || echo "")
+_filtered_path="$PATH"
+if [[ -n "$_ldb_dir" ]]; then
+    _filtered_path=$(echo "$PATH" | tr ':' '\n' | grep -vxF "$_ldb_dir" | tr '\n' ':')
+    _filtered_path="${_filtered_path%:}"
+fi
+
 exit_code=0
-PROJECT_ROOT="$WORK" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/good.py" 2>/dev/null || exit_code=$?
+PATH="$_filtered_path" PROJECT_ROOT="$WORK" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$WORK/good.py" 2>/dev/null || exit_code=$?
 assert_eq "Clean file passes with local lessons" "0" "$exit_code"
 
 report_results

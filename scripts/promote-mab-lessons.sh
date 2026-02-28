@@ -78,15 +78,31 @@ while IFS= read -r line; do
     filename=$(printf "%04d-%s.md" "$num" "$slug")
 
     promoted_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # Determine pattern type: if pattern looks like a regex (contains regex metacharacters),
+    # treat as syntactic; otherwise semantic with empty regex.
+    p_type="semantic"
+    p_regex=""
+    if echo "$pattern" | grep -qE '[][\\.*+?{}^$|]'; then
+        p_type="syntactic"
+        p_regex="$pattern"
+    fi
     # Use printf to avoid shell expansion of LLM-sourced variables (security)
     printf '%s\n' \
         "---" \
-        "pattern: \"$pattern\"" \
+        "id: $num" \
+        "title: \"$pattern\"" \
+        "severity: should-fix" \
+        "languages: [all]" \
+        "scope: [universal]" \
+        "category: mab-promoted" \
+        "pattern:" \
+        "  type: $p_type" \
+        "  regex: \"$p_regex\"" \
+        "source: mab-auto-promoted" \
+        "promoted_at: $promoted_at" \
         "context: $context" \
         "winning_strategy: $winner" \
         "occurrences: $occurrences" \
-        "source: mab-auto-promoted" \
-        "promoted_at: $promoted_at" \
         "---" \
         "" \
         "# $pattern" \
@@ -105,6 +121,11 @@ while IFS= read -r line; do
         "" \
         "Apply this pattern when working on $context batches." \
         > "$LESSONS_DIR/$filename"
+
+    # Enhancement: insert detection pattern into lessons-db if available
+    if command -v lessons-db &>/dev/null && [[ -n "$p_regex" ]]; then
+        lessons-db rule generate "$num" 2>/dev/null || true
+    fi
 
     echo "  Promoted: $filename"
     promoted=$((promoted + 1))

@@ -270,6 +270,111 @@ else
     fail "--scope override should enable domain:ha-aria matching, got: $output"
 fi
 
+# --- Test 15: PROJECT_ROOT loads project-local lessons ---
+PROJECT_WORK=$(mktemp -d)
+mkdir -p "$PROJECT_WORK/docs/lessons"
+
+# Create a project-local lesson
+cat > "$PROJECT_WORK/docs/lessons/0001-project-local-test.md" <<'LESSON'
+---
+id: 8001
+title: "Project-local test pattern"
+severity: should-fix
+languages: [python]
+scope: [universal]
+category: test
+pattern:
+  type: syntactic
+  regex: "project_local_marker_xyzzy"
+---
+LESSON
+
+# Create a Python file with the marker
+cat > "$PROJECT_WORK/target.py" <<'PY'
+project_local_marker_xyzzy = True
+PY
+
+output=$(cd "$PROJECT_WORK" && PROJECT_ROOT="$PROJECT_WORK" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$PROJECT_WORK/target.py" 2>&1 || true)
+if echo "$output" | grep -q '\[lesson-8001\]'; then
+    pass "PROJECT_ROOT loads project-local lessons (Tier 3)"
+else
+    fail "PROJECT_ROOT should load project-local lessons, got: $output"
+fi
+rm -rf "$PROJECT_WORK"
+
+# --- Test 16: seen_violations dedup prevents duplicate reports ---
+DEDUP_WORK=$(mktemp -d)
+mkdir -p "$DEDUP_WORK/docs/lessons"
+
+# Create a lesson in both bundled and project-local dirs that would match
+cat > "$DEDUP_WORK/0001-dedup-test.md" <<'LESSON'
+---
+id: 9001
+title: "Dedup test pattern"
+severity: should-fix
+languages: [python]
+scope: [universal]
+category: test
+pattern:
+  type: syntactic
+  regex: "dedup_test_marker"
+---
+LESSON
+
+cp "$DEDUP_WORK/0001-dedup-test.md" "$DEDUP_WORK/docs/lessons/0001-dedup-test.md"
+
+cat > "$DEDUP_WORK/target.py" <<'PY'
+dedup_test_marker = True
+PY
+
+# Use same dir for LESSONS_DIR and PROJECT_ROOT so both loops scan the same lesson
+output=$(cd "$DEDUP_WORK" && LESSONS_DIR="$DEDUP_WORK" PROJECT_ROOT="$DEDUP_WORK" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$DEDUP_WORK/target.py" 2>&1 || true)
+# Count how many times the violation appears — should be exactly 1 due to dedup
+match_count=$(echo "$output" | grep -c '\[lesson-9001\]' || true)
+if [[ "$match_count" -eq 1 ]]; then
+    pass "seen_violations dedup prevents duplicate violation reports"
+else
+    fail "Expected exactly 1 violation report for dedup, got $match_count: $output"
+fi
+rm -rf "$DEDUP_WORK"
+
+# --- Test 17: lessons-db block skipped when lessons-db not on PATH ---
+# Create a wrapper script that shadows lessons-db with a nonexistent path.
+# Output should be identical to standalone behavior (no "via lessons-db" lines).
+LDB_WORK=$(mktemp -d)
+cat > "$LDB_WORK/bad.py" <<'PY'
+try:
+    do_something()
+except:
+    pass
+PY
+
+# Build a PATH that excludes the directory containing lessons-db
+_ldb_dir=$(dirname "$(command -v lessons-db 2>/dev/null)" 2>/dev/null || echo "")
+_filtered_path="$PATH"
+if [[ -n "$_ldb_dir" ]]; then
+    _filtered_path=$(echo "$PATH" | tr ':' '\n' | grep -vxF "$_ldb_dir" | tr '\n' ':')
+    _filtered_path="${_filtered_path%:}"  # trim trailing colon
+fi
+
+output_no_ldb=$(cd "$LDB_WORK" && PATH="$_filtered_path" PROJECT_CLAUDE_MD="/dev/null" bash "$LESSON_CHECK" "$LDB_WORK/bad.py" 2>&1 || true)
+if echo "$output_no_ldb" | grep -q 'via lessons-db'; then
+    fail "lessons-db block should be skipped when lessons-db not on PATH"
+else
+    pass "lessons-db block skipped when lessons-db not on PATH"
+fi
+rm -rf "$LDB_WORK"
+
+# --- Test 18: lessons-db block requires both lessons-db AND jq ---
+# Verify the source code checks for both commands
+TESTS=$((TESTS + 1))
+if grep -q 'command -v lessons-db' "$LESSON_CHECK" && grep -q 'command -v jq' "$LESSON_CHECK"; then
+    echo "PASS: lessons-db block guards on both lessons-db and jq availability"
+else
+    echo "FAIL: lessons-db block should check for both lessons-db and jq"
+    FAILURES=$((FAILURES + 1))
+fi
+
 # --- Summary ---
 echo ""
 echo "lesson-check tests: $TESTS run, $((TESTS - FAILURES)) passed, $FAILURES failed"

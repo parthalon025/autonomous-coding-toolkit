@@ -84,6 +84,7 @@ if [[ -f "$PROJECT_ROOT/scripts/validate-all.sh" ]]; then
 fi
 
 # === Check 1: Lesson check on changed files ===
+export PROJECT_ROOT="${PROJECT_ROOT:-$(pwd)}"
 echo "=== Quality Gate: Lesson Check ==="
 changed_files=$(git diff --name-only 2>/dev/null || true)
 if [[ -n "$changed_files" ]]; then
