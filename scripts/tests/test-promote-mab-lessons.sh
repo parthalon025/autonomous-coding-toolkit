@@ -151,9 +151,12 @@ else
     fi
 
     # Verify parse_lesson() can actually parse the promoted file
-    LESSON_CHECK_SCRIPT="$SCRIPT_DIR/../lesson-check.sh"
-    # Source just the parse_lesson function
-    source <(sed -n '/^parse_lesson()/,/^}/p' "$LESSON_CHECK_SCRIPT")
+    LESSON_CHECK_LIB="$SCRIPT_DIR/../lib/lesson-check-lib.sh"
+    # Source the lesson-check library (contains parse_lesson)
+    SCRIPT_DIR_SAVE="$SCRIPT_DIR"
+    SCRIPT_DIR="$SCRIPT_DIR/.."
+    source "$LESSON_CHECK_LIB"
+    SCRIPT_DIR="$SCRIPT_DIR_SAVE"
     TESTS=$((TESTS + 1))
     if parse_lesson "$promoted_file"; then
         echo "PASS: parse_lesson() successfully parses promoted file"
