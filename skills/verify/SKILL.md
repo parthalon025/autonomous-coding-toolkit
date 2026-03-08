@@ -2,10 +2,16 @@
 name: verify
 description: Self-verification checklist — run before declaring work complete, committing, or creating PRs
 disable-model-invocation: true
-version: 1.0.0
+allowed-tools: "Bash Read Glob Grep"
+metadata:
+  version: 1.0.0
+  category: workflow
+  tags: [verification, pipeline, testing]
+  updated: 2026-03-08
 ---
 
 ## Dependencies
+
 - Bash tool (git, test runners, linters)
 
 Run a verification pass on the work just completed. Do NOT skip steps.

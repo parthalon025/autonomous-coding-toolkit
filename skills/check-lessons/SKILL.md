@@ -1,6 +1,13 @@
 ---
 name: check-lessons
 description: Use when starting planning or coding to surface relevant lessons that prevent repeating past mistakes
+allowed-tools: "Bash Read"
+compatibility: "Requires lessons-db CLI installed"
+metadata:
+  version: 1.0.0
+  category: learning
+  tags: [lessons, planning, prevention]
+  updated: 2026-03-08
 ---
 
 # Check Lessons
@@ -24,6 +31,7 @@ Uses `lessons-db search` (LanceDB semantic vector search + SQLite keyword/file m
 ### Step 1: Identify the Work Domain
 
 Determine what is being touched:
+
 - Which files and directories?
 - Which systems (HA, Telegram, Notion, systemd, etc.)?
 - Which patterns (async, error handling, data flow, schema, startup, etc.)?
@@ -46,6 +54,7 @@ lessons-db search "" --content "except:"
 ```
 
 Run 2-3 focused queries targeting:
+
 - The specific system being touched (e.g., "HA entity state subscription")
 - The error pattern at risk (e.g., "silent exception return None")
 - The cluster domain (e.g., "cold start missing baseline seed")
@@ -54,14 +63,14 @@ Run 2-3 focused queries targeting:
 
 For each result, note the cluster and look up cluster-wide mitigations:
 
-| Cluster | Name | Watch For |
-|---------|------|-----------|
-| A | Silent Failures | Any fallback/except/return None without logging |
-| B | Integration Boundaries | Cross-service calls, shared state, API contracts |
-| C | Cold-Start | First-run, missing baselines, state seeding |
-| D | Specification Drift | Agent builds wrong thing correctly — verify spec |
-| E | Context & Retrieval | Info available but misscoped or buried |
-| F | Planning & Control Flow | Wrong decomposition contaminates downstream |
+| Cluster | Name                    | Watch For                                        |
+| ------- | ----------------------- | ------------------------------------------------ |
+| A       | Silent Failures         | Any fallback/except/return None without logging  |
+| B       | Integration Boundaries  | Cross-service calls, shared state, API contracts |
+| C       | Cold-Start              | First-run, missing baselines, state seeding      |
+| D       | Specification Drift     | Agent builds wrong thing correctly — verify spec |
+| E       | Context & Retrieval     | Info available but misscoped or buried           |
+| F       | Planning & Control Flow | Wrong decomposition contaminates downstream      |
 
 ### Step 4: Present Findings
 
@@ -87,18 +96,18 @@ Check `lessons-db status` for open scan findings and overdue corrective actions 
 
 ## Key References
 
-| Source | How to query |
-|--------|-------------|
-| `lessons-db search "<query>"` | Semantic + keyword search (primary) |
-| `lessons-db search "" --file <path>` | File-overlap search |
+| Source                                    | How to query                          |
+| ----------------------------------------- | ------------------------------------- |
+| `lessons-db search "<query>"`             | Semantic + keyword search (primary)   |
+| `lessons-db search "" --file <path>`      | File-overlap search                   |
 | `lessons-db search "" --content "<code>"` | Pattern match against detection rules |
-| `lessons-db status` | Open findings + overdue actions |
+| `lessons-db status`                       | Open findings + overdue actions       |
 
 ## Common Mistakes
 
-| Mistake | Fix |
-|---------|-----|
-| Using grep on markdown files | Use `lessons-db search` — it has semantic search, not just keyword match |
-| Single vague query | Run 2-3 focused queries: system, error pattern, cluster domain |
+| Mistake                                  | Fix                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------ |
+| Using grep on markdown files             | Use `lessons-db search` — it has semantic search, not just keyword match |
+| Single vague query                       | Run 2-3 focused queries: system, error pattern, cluster domain           |
 | Ignoring standalone lessons (no cluster) | Search results include all lessons — cluster assignment is informational |
-| Skipping open corrective actions | Run `lessons-db status` to surface proposed-but-unvalidated fixes |
+| Skipping open corrective actions         | Run `lessons-db status` to surface proposed-but-unvalidated fixes        |

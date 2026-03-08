@@ -1,7 +1,12 @@
 ---
 name: autocode
 description: "Run the full autonomous coding pipeline — brainstorm → PRD → plan → execute → verify → finish — with Telegram notifications and quality gates at every stage."
-version: 1.0.0
+disable-model-invocation: true
+metadata:
+  version: 1.0.0
+  category: workflow
+  tags: [automation, pipeline, coding, code-factory]
+  updated: 2026-03-08
 ---
 
 # Autocode — Full Autonomous Coding Pipeline
@@ -31,6 +36,7 @@ You MUST create a task for each of these items and complete them in order:
 ## Arguments
 
 The user provides a feature description, report path, or issue reference:
+
 - Feature description: "Add user authentication with JWT"
 - Report path: `reports/daily.md` — run `scripts/analyze-report.sh` first to extract top priority
 - Issue: `#42` — fetch issue details via `gh issue view 42`
@@ -66,6 +72,7 @@ The user provides a feature description, report path, or issue reference:
 If the input describes multiple features (3+ distinct features, "roadmap" keyword, or an epic), invoke `autonomous-coding-toolkit:roadmap` to decompose it.
 
 This stage produces:
+
 - `tasks/roadmap.md` with dependency-ordered feature list
 - Phase groupings with effort estimates
 - User approval of feature ordering
@@ -85,6 +92,7 @@ After roadmap approval, the pipeline loops through features in order — each fe
 Invoke `autonomous-coding-toolkit:brainstorming` with the feature description.
 
 This stage produces:
+
 - Approved design doc at `docs/plans/YYYY-MM-DD-<topic>-design.md`
 - User approval of the design
 
@@ -99,6 +107,7 @@ This stage produces:
 After design approval, check if the feature involves technical unknowns, unfamiliar libraries, or integration with existing code. If so, invoke `autonomous-coding-toolkit:research`.
 
 This stage produces:
+
 - Research report at `tasks/research-<slug>.md`
 - Machine-readable findings at `tasks/research-<slug>.json`
 - Resolution of all blocking issues (or user override)
@@ -116,6 +125,7 @@ This stage produces:
 ### Stage 2: PRD Generation
 
 After design approval (and research if conducted), generate `tasks/prd.json` using the `/create-prd` format:
+
 - 8-15 granular tasks with machine-verifiable acceptance criteria
 - Every acceptance criterion is a shell command (exit 0 = pass)
 - Separate investigation tasks from implementation tasks
@@ -135,6 +145,7 @@ After generating, ask the user: **"How would you improve these acceptance criter
 Invoke `autonomous-coding-toolkit:writing-plans` to create the implementation plan.
 
 Enhance the plan with:
+
 - A `## Quality Gates` section listing project-specific checks (auto-detect: `pytest`, `npm test`, `npm run lint`, `make test`, or `scripts/quality-gate.sh`)
 - Cross-references to `tasks/prd.json` task IDs in plan steps
 - `progress.txt` initialization as the first plan step
@@ -150,17 +161,18 @@ Enhance the plan with:
 
 Ask the user which execution mode to use:
 
-| Mode | Best For | How |
-|------|----------|-----|
-| **In-session** | Small plans (1-3 batches) | Execute here with TDD |
-| **Subagent** | 5-15 independent tasks | `autonomous-coding-toolkit:subagent-driven-development` |
-| **Headless** | 4+ batches, unattended | `scripts/run-plan.sh <plan> --notify` |
-| **Ralph loop** | Iterate until done | `/ralph-loop` with completion promise |
-| **MAB** | Learn best strategy per batch type | `scripts/run-plan.sh <plan> --mab --notify` |
+| Mode           | Best For                           | How                                                     |
+| -------------- | ---------------------------------- | ------------------------------------------------------- |
+| **In-session** | Small plans (1-3 batches)          | Execute here with TDD                                   |
+| **Subagent**   | 5-15 independent tasks             | `autonomous-coding-toolkit:subagent-driven-development` |
+| **Headless**   | 4+ batches, unattended             | `scripts/run-plan.sh <plan> --notify`                   |
+| **Ralph loop** | Iterate until done                 | `/ralph-loop` with completion promise                   |
+| **MAB**        | Learn best strategy per batch type | `scripts/run-plan.sh <plan> --mab --notify`             |
 
 #### For in-session and subagent modes:
 
 Between EVERY batch:
+
 1. Run quality gate:
    ```bash
    scripts/quality-gate.sh --project-root .
@@ -182,6 +194,7 @@ Between EVERY batch:
 #### For headless mode:
 
 Launch via bash:
+
 ```bash
 scripts/run-plan.sh <plan-file> --notify --on-failure retry --max-retries 3 --verify
 ```
@@ -199,6 +212,7 @@ Report the command to the user and let them decide to run it.
 Invoke `autonomous-coding-toolkit:verification-before-completion`.
 
 Additionally:
+
 1. Run ALL acceptance criteria from `tasks/prd.json`:
    ```bash
    # For each criterion in prd.json
@@ -225,6 +239,7 @@ Invoke `autonomous-coding-toolkit:finishing-a-development-branch`.
 After the user's choice (merge/PR/keep/discard):
 
 **Telegram:**
+
 - Merge: `🎉 Autocode complete: <feature> merged to <branch>`
 - PR: `🎉 Autocode complete: <feature> — PR #<N> created`
 - Keep: `📌 Autocode paused: <feature> on branch <name>`
@@ -237,6 +252,7 @@ After the user's choice (merge/PR/keep/discard):
 Notifications are sent via the Telegram Bot API using credentials from `~/.env`. They are **optional** — the pipeline works without them.
 
 To send a notification from within Claude Code:
+
 ```bash
 TELEGRAM_BOT_TOKEN=$(grep 'TELEGRAM_BOT_TOKEN' ~/.env | cut -d= -f2-)
 TELEGRAM_CHAT_ID=$(grep 'TELEGRAM_CHAT_ID' ~/.env | cut -d= -f2-)
@@ -262,18 +278,22 @@ If credentials are missing, skip notifications silently — never block the pipe
 ## Common Mistakes
 
 **Skipping brainstorming for "simple" features**
+
 - Problem: Unexamined assumptions cause rework
 - Fix: Every feature goes through Stage 1, even one-line changes
 
 **Generating vague PRD criteria**
+
 - Problem: "Works correctly" is not verifiable
 - Fix: Every criterion is a shell command. `curl -s localhost:8080/api/health | jq -e '.status == "ok"'`
 
 **Proceeding past failed quality gates**
+
 - Problem: Cascading failures compound in later batches
 - Fix: Fix the gate failure BEFORE moving to the next batch
 
 **Not updating progress.txt**
+
 - Problem: Next batch (fresh context) loses discoveries
 - Fix: Append batch summary after every batch, before moving on
 
