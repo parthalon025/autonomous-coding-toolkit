@@ -1,7 +1,11 @@
 ---
 name: receiving-code-review
 description: Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation
-version: 1.0.0
+metadata:
+  version: 1.0.0
+  category: workflow
+  tags: [code-review, feedback, implementation]
+  updated: 2026-03-08
 ---
 
 # Code Review Reception
@@ -28,11 +32,13 @@ WHEN receiving code review feedback:
 ## Forbidden Responses
 
 **NEVER:**
+
 - "You're absolutely right!" (performative)
 - "Great point!" / "Excellent feedback!" (performative)
 - "Let me implement that now" (before verification)
 
 **INSTEAD:**
+
 - Restate the technical requirement
 - Ask clarifying questions
 - Push back with technical reasoning if wrong
@@ -41,6 +47,7 @@ WHEN receiving code review feedback:
 ## When To Push Back
 
 Push back when:
+
 - Suggestion breaks existing functionality
 - Reviewer lacks full context
 - Violates YAGNI (unused feature)
@@ -48,6 +55,7 @@ Push back when:
 - Conflicts with architectural decisions
 
 **How to push back:**
+
 - Use technical reasoning, not defensiveness
 - Ask specific questions
 - Reference working tests/code

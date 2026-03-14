@@ -2,7 +2,7 @@
 
 Copy this file to `docs/lessons/NNNN-<slug>.md` where NNNN is the next sequential ID.
 
-```yaml
+````yaml
 ---
 id: <next sequential number>
 title: "<Short descriptive title — what the anti-pattern IS>"
@@ -31,6 +31,19 @@ example:
 
 ## Lesson
 <The rule to follow. One paragraph, actionable, testable.>
+
+## False Assumption
+AI assumes <specific incorrect belief about the API/behavior — one sentence>.
+
+## Detection Pattern
+```python
+<1-5 line code snippet that signals this mistake is being made>
+````
+
+## Invariant
+
+Always <positive rule statement — start with Always/Ensure/Set/Pass/Return>.
+
 ```
 
 ## Field Guide
@@ -83,3 +96,4 @@ See existing lessons in this directory for reference:
 - `0001-bare-exception-swallowing.md` — syntactic, blocker
 - `0002-async-def-without-await.md` — semantic, blocker
 - `0003-create-task-without-callback.md` — semantic, should-fix
+```

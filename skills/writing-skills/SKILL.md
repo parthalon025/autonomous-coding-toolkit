@@ -1,7 +1,12 @@
 ---
 name: writing-skills
 description: Use when creating new skills, editing existing skills, or verifying skills work before deployment
-version: 1.0.0
+disable-model-invocation: true
+metadata:
+  version: 1.0.0
+  category: meta
+  tags: [skills, creation, writing, editing]
+  updated: 2026-03-08
 ---
 
 # Writing Skills
@@ -24,6 +29,7 @@ A **skill** is a reference guide for proven techniques, patterns, or tools. Skil
 ## SKILL.md Structure
 
 **Frontmatter (YAML):**
+
 - Only two fields supported: `name` and `description`
 - Max 1024 characters total
 - `name`: Use letters, numbers, and hyphens only
@@ -38,18 +44,23 @@ description: Use when [specific triggering conditions and symptoms]
 # Skill Name
 
 ## Overview
+
 What is this? Core principle in 1-2 sentences.
 
 ## When to Use
+
 Bullet list with SYMPTOMS and use cases
 
 ## Core Pattern
+
 Before/after code comparison
 
 ## Quick Reference
+
 Table or bullets for scanning
 
 ## Common Mistakes
+
 What goes wrong + fixes
 ```
 
@@ -64,22 +75,27 @@ Write skill before testing? Delete it. Start over.
 ## RED-GREEN-REFACTOR for Skills
 
 ### RED: Write Failing Test (Baseline)
+
 Run pressure scenario with subagent WITHOUT the skill. Document exact behavior.
 
 ### GREEN: Write Minimal Skill
+
 Write skill that addresses those specific rationalizations. Run same scenarios WITH skill.
 
 ### REFACTOR: Close Loopholes
+
 Agent found new rationalization? Add explicit counter. Re-test until bulletproof.
 
 ## Skill Creation Checklist
 
 **RED Phase:**
+
 - [ ] Create pressure scenarios
 - [ ] Run scenarios WITHOUT skill - document baseline
 - [ ] Identify patterns in rationalizations/failures
 
 **GREEN Phase:**
+
 - [ ] Name uses only letters, numbers, hyphens
 - [ ] YAML frontmatter with only name and description
 - [ ] Description starts with "Use when..."
@@ -87,6 +103,7 @@ Agent found new rationalization? Add explicit counter. Re-test until bulletproof
 - [ ] Run scenarios WITH skill - verify compliance
 
 **REFACTOR Phase:**
+
 - [ ] Identify NEW rationalizations from testing
 - [ ] Add explicit counters
 - [ ] Build rationalization table

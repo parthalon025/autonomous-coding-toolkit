@@ -1,7 +1,11 @@
 ---
 name: subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
-version: 1.0.0
+metadata:
+  version: 1.0.0
+  category: workflow
+  tags: [agents, subagents, implementation, parallel]
+  updated: 2026-03-08
 ---
 
 # Subagent-Driven Development
@@ -13,6 +17,7 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 ## When to Use
 
 **vs. Executing Plans (parallel session):**
+
 - Same session (no context switch)
 - Fresh subagent per task (no context pollution)
 - Two-stage review after each task: spec compliance first, then code quality
@@ -74,6 +79,7 @@ digraph process {
 ## Red Flags
 
 **Never:**
+
 - Start implementation on main/master branch without explicit user consent
 - Skip reviews (spec compliance OR code quality)
 - Dispatch multiple implementation subagents in parallel (conflicts)
@@ -81,10 +87,12 @@ digraph process {
 - **Start code quality review before spec compliance is ✅** (wrong order)
 
 **If subagent asks questions:**
+
 - Answer clearly and completely
 - Don't rush them into implementation
 
 **If reviewer finds issues:**
+
 - Implementer (same subagent) fixes them
 - Reviewer reviews again
 - Repeat until approved
@@ -92,6 +100,7 @@ digraph process {
 ## Integration
 
 **Required workflow skills:**
+
 - **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Code review template for reviewer subagents

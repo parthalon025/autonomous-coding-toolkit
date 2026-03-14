@@ -1,7 +1,12 @@
 ---
 name: roadmap
-description: "Decompose a multi-feature epic into a dependency-ordered, phased roadmap with effort estimates."
-version: 1.0.0
+description: "Decompose a multi-feature epic into a dependency-ordered, phased roadmap with effort estimates. Use when decomposing a multi-feature epic or planning a phased delivery sequence."
+allowed-tools: "Write Edit Read"
+metadata:
+  version: 1.0.0
+  category: workflow
+  tags: [roadmap, epic, phases, effort]
+  updated: 2026-03-08
 ---
 
 # Roadmap — Multi-Feature Decomposition
@@ -21,6 +26,7 @@ Do NOT brainstorm individual features until the roadmap is approved. Feature ord
 - Input references a large body of work spanning multiple PRs
 
 Skip this stage when:
+
 - Input is a single feature (even a complex one — brainstorming handles that)
 - Input is a bug fix or small enhancement
 
@@ -29,6 +35,7 @@ Skip this stage when:
 ### Step 1: Extract Features
 
 Read the input and identify distinct features. Each feature must be:
+
 - **Independent enough** to be brainstormed, PRD'd, and implemented as a standalone unit
 - **Ordered by dependency** — if Feature B needs Feature A's output, A comes first
 - **Sized for 1-3 sessions** — if a feature takes more, it's an epic, not a feature; decompose further
@@ -36,6 +43,7 @@ Read the input and identify distinct features. Each feature must be:
 ### Step 2: Identify Dependencies
 
 For each pair of features, determine:
+
 - **Hard dependency** — B cannot start until A is merged (shared interfaces, schema changes)
 - **Soft dependency** — B benefits from A being done first (shared patterns, learning)
 - **Independent** — no relationship
@@ -44,15 +52,16 @@ For each pair of features, determine:
 
 Group features into phases based on dependencies:
 
-| Phase | Features | Why this order |
-|-------|----------|---------------|
-| 1 | Foundation features | No dependencies, enable later work |
-| 2 | Dependent features | Require Phase 1 outputs |
-| 3 | Polish features | Require Phase 1+2, add refinement |
+| Phase | Features            | Why this order                     |
+| ----- | ------------------- | ---------------------------------- |
+| 1     | Foundation features | No dependencies, enable later work |
+| 2     | Dependent features  | Require Phase 1 outputs            |
+| 3     | Polish features     | Require Phase 1+2, add refinement  |
 
 ### Step 4: Estimate Effort
 
 For each feature, estimate:
+
 - **Complexity** — simple (1 batch) / moderate (2-3 batches) / complex (4+ batches)
 - **Risk** — low / medium / high (based on unknowns, integration surface, external deps)
 
@@ -68,21 +77,25 @@ Generated: YYYY-MM-DD
 ## Features (dependency order)
 
 ### Phase 1: <Phase Name>
-| # | Feature | Complexity | Risk | Dependencies |
-|---|---------|-----------|------|-------------|
-| 1 | Feature A | moderate | low | none |
-| 2 | Feature B | simple | low | none |
+
+| #   | Feature   | Complexity | Risk | Dependencies |
+| --- | --------- | ---------- | ---- | ------------ |
+| 1   | Feature A | moderate   | low  | none         |
+| 2   | Feature B | simple     | low  | none         |
 
 ### Phase 2: <Phase Name>
-| # | Feature | Complexity | Risk | Dependencies |
-|---|---------|-----------|------|-------------|
-| 3 | Feature C | complex | medium | #1 |
+
+| #   | Feature   | Complexity | Risk   | Dependencies |
+| --- | --------- | ---------- | ------ | ------------ |
+| 3   | Feature C | complex    | medium | #1           |
 
 ## Dependency Graph
+
 1 → 3
 2 (independent)
 
 ## Total Estimate
+
 - Features: N
 - Phases: M
 - Estimated sessions: X-Y
@@ -91,6 +104,7 @@ Generated: YYYY-MM-DD
 ### Step 6: Get Approval
 
 Present the roadmap to the user. Ask:
+
 - **"Does this feature ordering make sense?"**
 - **"Should any features be cut, combined, or reordered?"**
 
@@ -101,6 +115,7 @@ Minimum 1 round of refinement before proceeding.
 ## After Approval
 
 The autocode pipeline loops through features in roadmap order:
+
 1. Pick next feature from roadmap
 2. Run Stage 1 (Brainstorm) through Stage 6 (Finish) for that feature
 3. Mark feature complete in roadmap

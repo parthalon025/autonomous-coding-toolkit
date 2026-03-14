@@ -45,3 +45,4 @@ logs/
 progress.txt
 .run-plan-state.json
 .worktrees/
+megalinter-reports/

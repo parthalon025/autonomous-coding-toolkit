@@ -1,7 +1,11 @@
 ---
 name: systematic-debugging
 description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
-version: 1.0.0
+metadata:
+  version: 1.0.0
+  category: workflow
+  tags: [debugging, bugs, testing, diagnosis]
+  updated: 2026-03-08
 ---
 
 # Systematic Debugging
@@ -25,6 +29,7 @@ If you haven't completed Phase 1, you cannot propose fixes.
 ## When to Use
 
 Use for ANY technical issue:
+
 - Test failures
 - Bugs in production
 - Unexpected behavior
@@ -60,6 +65,7 @@ You MUST complete each phase before proceeding to the next.
    **WHEN system has multiple components:**
 
    **BEFORE proposing fixes, add diagnostic instrumentation:**
+
    ```
    For EACH component boundary:
      - Log what data enters component
@@ -111,21 +117,21 @@ You MUST complete each phase before proceeding to the next.
 
 ## Common Rationalizations
 
-| Excuse | Reality |
-|--------|---------|
-| "Issue is simple, don't need process" | Simple issues have root causes too. |
-| "Emergency, no time for process" | Systematic debugging is FASTER than thrashing. |
-| "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
-| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. |
+| Excuse                                     | Reality                                        |
+| ------------------------------------------ | ---------------------------------------------- |
+| "Issue is simple, don't need process"      | Simple issues have root causes too.            |
+| "Emergency, no time for process"           | Systematic debugging is FASTER than thrashing. |
+| "I see the problem, let me fix it"         | Seeing symptoms ≠ understanding root cause.    |
+| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem.           |
 
 ## Quick Reference
 
-| Phase | Key Activities | Success Criteria |
-|-------|---------------|------------------|
-| **1. Root Cause** | Read errors, reproduce, check changes | Understand WHAT and WHY |
-| **2. Pattern** | Find working examples, compare | Identify differences |
-| **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
-| **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
+| Phase                 | Key Activities                        | Success Criteria            |
+| --------------------- | ------------------------------------- | --------------------------- |
+| **1. Root Cause**     | Read errors, reproduce, check changes | Understand WHAT and WHY     |
+| **2. Pattern**        | Find working examples, compare        | Identify differences        |
+| **3. Hypothesis**     | Form theory, test minimally           | Confirmed or new hypothesis |
+| **4. Implementation** | Create test, fix, verify              | Bug resolved, tests pass    |
 
 ## Supporting Techniques
 
