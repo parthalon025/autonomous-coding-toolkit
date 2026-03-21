@@ -2,6 +2,21 @@
 
 A complete system for running AI coding agents autonomously with quality gates, fresh-context execution, and machine-verifiable completion.
 
+## Quick Start
+
+```bash
+# Run the included quickstart plan (2 batches, headless)
+scripts/run-plan.sh examples/quickstart-plan.md
+
+# In-session with review prompts between batches
+/run-plan examples/quickstart-plan.md
+
+# Resume after interruption
+scripts/run-plan.sh --resume
+```
+
+The quickstart plan (`examples/quickstart-plan.md`) creates a hello-world bash script + test in 2 batches — each batch runs through the full quality gate (lesson-check → tests → memory check) before proceeding.
+
 ## How It Works
 
 This toolkit implements an **autonomous coding pipeline**: you write a plan in markdown, the system executes it batch-by-batch with a fresh AI context per batch, quality gates between batches, and machine-verifiable acceptance criteria.
@@ -14,31 +29,31 @@ Skills are loaded by Claude Code and define HOW to execute each stage. The `auto
 /autocode → [roadmap] → brainstorming → [research] → PRD → writing-plans → using-git-worktrees → [execution mode] → verification-before-completion → finishing-a-development-branch
 ```
 
-| Stage | Skill | Purpose |
-|-------|-------|---------|
-| 1. Design | `brainstorming` | Explore intent → design → approval before code |
-| 2. Plan | `writing-plans` | TDD-structured tasks at 2-5 minute granularity |
-| 3. Isolate | `using-git-worktrees` | Isolated workspace with safety verification |
-| 4a. Execute (same session) | `subagent-driven-development` | Fresh subagent per task + two-stage review |
-| 4b. Execute (separate session) | `executing-plans` | Batch execution with human review checkpoints |
-| 4c. Execute (headless) | `scripts/run-plan.sh` | `claude -p` per batch, fully autonomous |
-| 4c+. Execute (MAB) | `scripts/run-plan.sh --mab` | Competing agents via Thompson Sampling |
-| 4d. Execute (loop) | `commands/ralph-loop` | Stop-hook iteration until completion promise |
-| 5. Verify | `verification-before-completion` | Evidence-based gate: run commands, read output |
-| 6. Finish | `finishing-a-development-branch` | Merge / PR / Keep / Discard + worktree cleanup |
+| Stage                          | Skill                            | Purpose                                        |
+| ------------------------------ | -------------------------------- | ---------------------------------------------- |
+| 1. Design                      | `brainstorming`                  | Explore intent → design → approval before code |
+| 2. Plan                        | `writing-plans`                  | TDD-structured tasks at 2-5 minute granularity |
+| 3. Isolate                     | `using-git-worktrees`            | Isolated workspace with safety verification    |
+| 4a. Execute (same session)     | `subagent-driven-development`    | Fresh subagent per task + two-stage review     |
+| 4b. Execute (separate session) | `executing-plans`                | Batch execution with human review checkpoints  |
+| 4c. Execute (headless)         | `scripts/run-plan.sh`            | `claude -p` per batch, fully autonomous        |
+| 4c+. Execute (MAB)             | `scripts/run-plan.sh --mab`      | Competing agents via Thompson Sampling         |
+| 4d. Execute (loop)             | `commands/ralph-loop`            | Stop-hook iteration until completion promise   |
+| 5. Verify                      | `verification-before-completion` | Evidence-based gate: run commands, read output |
+| 6. Finish                      | `finishing-a-development-branch` | Merge / PR / Keep / Discard + worktree cleanup |
 
 ### Supporting Skills
 
-| Skill | Purpose |
-|-------|---------|
-| `test-driven-development` | Red-Green-Refactor cycle for all implementation |
-| `systematic-debugging` | Root cause before fix, always |
-| `dispatching-parallel-agents` | 2+ independent tasks in parallel |
-| `requesting-code-review` | Dispatch reviewer subagent with template |
-| `receiving-code-review` | Technical evaluation, not performative agreement |
-| `writing-skills` | TDD applied to process documentation |
-| `using-superpowers` | Meta-skill: invoke skills before any action |
-| `verify` | Self-verification checklist before completion claims |
+| Skill                         | Purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `test-driven-development`     | Red-Green-Refactor cycle for all implementation      |
+| `systematic-debugging`        | Root cause before fix, always                        |
+| `dispatching-parallel-agents` | 2+ independent tasks in parallel                     |
+| `requesting-code-review`      | Dispatch reviewer subagent with template             |
+| `receiving-code-review`       | Technical evaluation, not performative agreement     |
+| `writing-skills`              | TDD applied to process documentation                 |
+| `using-superpowers`           | Meta-skill: invoke skills before any action          |
+| `verify`                      | Self-verification checklist before completion claims |
 
 ## Directory Layout
 
@@ -176,10 +191,12 @@ Quality gates are mandatory between every batch. The default gate runs:
 3. **Memory check** — warn if < 4GB available
 
 Additionally enforced:
+
 - **Test count regression** — tests only go up between batches
 - **Git clean** — all changes committed before next batch
 
 Advanced options:
+
 - **`--sample N`** — parallel patch sampling: spawns N candidates with batch-type-aware prompt variants, scores them, and picks the winner. Uses multi-armed bandit learning from `logs/sampling-outcomes.json`.
 - **Auto-sampling** — automatically enables on retry (`SAMPLE_ON_RETRY`) and critical batches (`SAMPLE_ON_CRITICAL`), with memory guard to prevent OOM.
 - **Batch-type classification** — `classify_batch_type()` categorizes batches (new-file, refactoring, integration, test-only) for prompt variant selection.
@@ -219,6 +236,7 @@ Three mechanisms prevent data loss across context resets:
 5. **Lessons compound** — every bug becomes an automated check over time
 
 ## Scope Tags
+
 language:bash, project:autonomous-coding-toolkit
 
 ## Conventions
@@ -229,22 +247,26 @@ language:bash, project:autonomous-coding-toolkit
 - No completion claims without fresh verification evidence
 
 ## Code Quality
+
 - Lint: `make lint`
 - Format: `make format`
 
 ## Development Quality Gates
+
 - Before committing: `/verify`
 - Before PRs: `lessons-db scan --target . --baseline HEAD`
 
 ## Lessons
+
 - Check before planning: `/check-lessons`
 - Capture after bugs: `/capture-lesson`
 - Lessons: `lessons-db search` to query, `lessons-db capture` to add. DB is authoritative — never write lesson .md files directly.
 
 ## Local AI Review
+
 - Code review: `ollama-code-review .`
 
 ## Semantic Search
+
 - Generate: `bash scripts/generate-embeddings.sh`
 - Storage: `.embeddings/` (gitignored)
-
