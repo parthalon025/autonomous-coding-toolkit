@@ -1,6 +1,6 @@
 {
   "name": "autonomous-coding-toolkit",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Autonomous AI coding agent pipeline with quality gates, fresh context per batch, 79 community lessons, and compounding learning for Claude Code",
   "license": "MIT",
   "author": "Justin McFarland <parthalon025@gmail.com>",
